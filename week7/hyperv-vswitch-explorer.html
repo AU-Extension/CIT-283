@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hyper-V Switch Explorer</title>
+<meta name="description" content="CIT-283 Week 7 interactive: connect virtual machines to Hyper-V virtual switches and see who can reach whom.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  .grid>*{min-width:0}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,td[tabindex]:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .feedback.warn{background:var(--warn-soft);color:#7C2D12;border:1px solid #F6D7AE}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  /* page specific */
+  .diagram{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#FBFCFD}
+  .diagram svg{display:block;width:100%;min-width:640px;height:auto}
+  @media(min-width:900px){.grid.two.vm-grid{grid-template-columns:1fr 1fr}}
+  #matrix td,#matrix th{padding:6px 5px;white-space:nowrap}
+  .vms{display:grid;gap:12px;grid-template-columns:1fr}
+  @media(min-width:640px){.vms{grid-template-columns:1fr 1fr}}
+  .vm{border:1px solid var(--line);border-radius:10px;padding:12px;background:#fff}
+  .vm h3{display:flex;align-items:center;gap:8px}
+  .vm .dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+  .row label{font-size:13px;color:var(--muted);min-width:64px}
+  .row select{flex:1 1 150px}
+  .row input[type=number]{width:96px}
+  .nat{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:10px;background:var(--warn-soft);border:1px solid #F6D7AE;margin:12px 0}
+  .nat input{width:20px;height:20px;margin-top:2px}
+  td.cell{text-align:center;font-weight:600;cursor:pointer;white-space:nowrap}
+  td.cell.yes{background:var(--ok-soft);color:#14532D}
+  td.cell.nat{background:#E6F4F1;color:#0F5132}
+  td.cell.out{background:var(--warn-soft);color:#7C2D12}
+  td.cell.no{background:var(--bad-soft);color:#7F1D1D}
+  td.cell.self{background:#F1F3F6;color:var(--muted);cursor:default}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;margin-top:8px}
+  .legend span{padding:2px 8px;border-radius:6px}
+  .log{max-height:240px}
+  .swtable td:first-child{font-weight:600;white-space:nowrap}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 7 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 7 · Explorer</span>
+    <h1>Hyper-V virtual switch explorer</h1>
+    <p class="lede">Plug four virtual machines into different Hyper-V virtual switches and watch what each one can reach: the host computer, the office network, the internet and the other VMs. Every change also shows the PowerShell command an administrator would type.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>In the virtual machines panel, pick a virtual switch for each VM. Start with all four on the same switch, then move them around.</li>
+      <li>Read the reachability matrix. Click any cell to get a plain-language reason.</li>
+      <li>Use "Ping" to send an animated test packet from a VM to a target and see where it stops.</li>
+      <li>Turn NAT on and off for the Lab-Internal switch, and type VLAN IDs to see how they split one switch into separate groups.</li>
+      <li>Copy the PowerShell commands from the log into your notes for Assignments 7.1 and 7.2.</li>
+    </ol>
+  </details>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>The lab</h2>
+    <div class="diagram" id="diagramWrap">
+      <svg id="dia" viewBox="0 0 920 420" role="img" aria-label="Diagram of a Windows host running Hyper-V with four virtual switches and four virtual machines"></svg>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin:8px 0 0">On a small screen, scroll the diagram sideways. Lines from each VM show which switch its virtual network adapter is connected to.</p>
+  </section>
+
+  <div class="grid two vm-grid">
+    <section class="card">
+      <h2>Virtual machines</h2>
+      <div class="nat">
+        <input type="checkbox" id="natToggle" aria-describedby="natHelp">
+        <div><label for="natToggle" style="font-weight:600">NAT on the Lab-Internal switch</label>
+        <div id="natHelp" style="font-size:14px;color:var(--ink-2)">The host gets 192.168.50.1 on its vEthernet (Lab-Internal) adapter and translates VM traffic to its own address, so VMs on Lab-Internal can reach the internet.</div></div>
+      </div>
+      <div class="vms" id="vmPanel"></div>
+    </section>
+
+    <aside class="card">
+      <h2>Reachability matrix</h2>
+      <p style="margin:0 0 8px;font-size:14px;color:var(--ink-2)">Rows are the VM starting the connection. Click a cell for the reason.</p>
+      <div class="scroll-x"><table class="data" id="matrix"></table></div>
+      <div class="legend" aria-hidden="true">
+        <span style="background:var(--ok-soft)">Yes</span>
+        <span style="background:#E6F4F1">Yes, through NAT</span>
+        <span style="background:var(--warn-soft)">Outbound only</span>
+        <span style="background:var(--bad-soft)">No</span>
+      </div>
+      <div class="feedback info" id="why" aria-live="polite">Click a matrix cell or send a ping to see an explanation here.</div>
+    </aside>
+  </div>
+
+  <div class="grid two" style="margin-top:16px">
+    <section class="card">
+      <h2>PowerShell log</h2>
+      <p style="margin:0 0 8px;font-size:14px;color:var(--ink-2)">Run these in PowerShell as Administrator on the Hyper-V host. The VM must exist and the switch must already be created.</p>
+      <div class="cli log" id="log" tabindex="0" aria-label="PowerShell commands for your changes"></div>
+      <div class="row"><button class="btn" id="copyLog">Copy commands</button><button class="btn" id="clearLog">Clear log</button><button class="btn" id="reset">Reset lab</button></div>
+    </section>
+    <aside class="card">
+      <h2>Switch types at a glance</h2>
+      <div class="scroll-x"><table class="data swtable">
+        <tr><th>Switch</th><th>What it connects</th></tr>
+        <tr><td style="color:var(--net-blue)">External</td><td>Bound to a physical network card. VMs act like real computers on the office LAN and get addresses from the office DHCP server.</td></tr>
+        <tr><td style="color:var(--net-green)">Internal</td><td>VMs and the host only. Add NAT (New-NetNat) to give VMs internet access through the host.</td></tr>
+        <tr><td style="color:var(--net-purple)">Private</td><td>VMs only. Not even the host can reach them. Good for isolated test labs.</td></tr>
+        <tr><td style="color:var(--net-teal)">Default Switch</td><td>Created by Windows automatically. Built-in NAT and DHCP, so VMs reach the internet, but office devices cannot start connections to them.</td></tr>
+      </table></div>
+      <div class="cli" style="margin-top:12px">Get-VMSwitch
+New-VMSwitch -Name "Lab-External" -NetAdapterName "Ethernet" -AllowManagementOS $true
+New-VMSwitch -Name "Lab-Internal" -SwitchType Internal
+New-VMSwitch -Name "Lab-Private" -SwitchType Private</div>
+      <p style="font-size:13px;color:var(--muted);margin:8px 0 0">Simplification used here: the host and the office LAN are untagged (no VLAN). A VM with a VLAN ID can only talk to VMs with the same VLAN ID on the same switch.</p>
+    </aside>
+  </div>
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+<script>
+const hasGSAP = typeof window.gsap !== 'undefined';
+const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NS = 'http://www.w3.org/2000/svg';
+
+const SWITCHES = {
+  none:{name:'Not connected', color:'#9CA3AF'},
+  ext:{name:'Lab-External', color:'#2563EB', x1:30, x2:230},
+  int:{name:'Lab-Internal', color:'#15803D', x1:250, x2:450},
+  priv:{name:'Lab-Private', color:'#7C3AED', x1:470, x2:670},
+  def:{name:'Default Switch', color:'#0F766E', x1:690, x2:890}
+};
+const VM_COLORS = ['#E1141E','#2563EB','#B45309','#0F766E'];
+const VMX = [130, 350, 570, 790];
+const DEFAULT = () => ({nat:false, vms:[
+  {name:'VM1', sw:'int', vlan:null},
+  {name:'VM2', sw:'int', vlan:null},
+  {name:'VM3', sw:'priv', vlan:null},
+  {name:'VM4', sw:'def', vlan:null}
+]});
+let state = DEFAULT();
+
+/* ---------- reachability rules ---------- */
+// result: {r:'yes'|'nat'|'out'|'no'|'self', why:'...', stop:'vm'|'switch'|...}
+function reach(i, target){
+  const vm = state.vms[i];
+  const sw = vm.sw, swn = SWITCHES[sw].name;
+  if(typeof target === 'number'){
+    if(target === i) return {r:'self', why:''};
+    const o = state.vms[target];
+    if(sw === 'none') return {r:'no', why:`${vm.name} is not connected to any virtual switch, so it cannot send anything.`, stop:'vm'};
+    if(o.sw === 'none') return {r:'no', why:`${o.name} is not connected to any virtual switch.`, stop:'switch'};
+    if(o.sw !== sw) return {r:'no', why:`${vm.name} is on ${swn} and ${o.name} is on ${SWITCHES[o.sw].name}. Each virtual switch is a separate network. Traffic between them would need a router (for example a VM with two network adapters), which this lab does not have.`, stop:'switch'};
+    if(vm.vlan !== o.vlan) return {r:'no', why:`Same switch (${swn}) but different VLANs: ${vm.name} is ${vlanText(vm.vlan)} and ${o.name} is ${vlanText(o.vlan)}. A VLAN ID splits one switch into separate broadcast domains.`, stop:'switch'};
+    return {r:'yes', why:`${vm.name} and ${o.name} are both on ${swn}${vm.vlan?` in VLAN ${vm.vlan}`:''}. They are on the same Layer 2 network, so they can talk directly (with IP addresses in the same subnet).`};
+  }
+  if(sw === 'none') return {r:'no', why:`${vm.name} is not connected to any virtual switch. Its network adapter is like an unplugged cable.`, stop:'vm'};
+  if(sw === 'priv') return {r:'no', why:`${swn} is a private switch. Only VMs are connected to it, so ${vm.name} has no path to the host, the office LAN or the internet.`, stop:'switch'};
+  if(vm.vlan) return {r:'no', why:`${vm.name} is tagged with VLAN ${vm.vlan}, but in this lab the host and the office LAN are untagged. Only VMs with VLAN ${vm.vlan} on ${swn} can talk to it. Remove the tag with Set-VMNetworkAdapterVlan -Untagged.`, stop:'switch'};
+  if(target === 'host'){
+    if(sw === 'ext') return {r:'yes', why:`The external switch was created with -AllowManagementOS $true, so the host shares it and is on the same network as ${vm.name}.`};
+    if(sw === 'int') return {r:'yes', why:`An internal switch gives the host a virtual adapter named vEthernet (Lab-Internal). The host and ${vm.name} are on the same private network.`};
+    if(sw === 'def') return {r:'yes', why:`The Default Switch is an internal switch with NAT that Windows creates for you, so the host can reach ${vm.name}.`};
+    return {r:'no', why:`${swn} is a private switch. Only VMs are connected to it. The host has no adapter on this switch, so it cannot reach ${vm.name}.`, stop:'switch'};
+  }
+  if(target === 'lan'){
+    if(sw === 'ext') return {r:'yes', why:`The external switch is bound to the host's physical network card, so ${vm.name} is a full member of the office LAN. Office computers can start connections to it, and it gets an address from the office DHCP server.`};
+    if(sw === 'def') return {r:'out', why:`${vm.name} can open connections out to office devices because the Default Switch uses NAT. Office devices cannot start a connection to ${vm.name}, because they only see the host's address.`};
+    if(sw === 'int') return state.nat
+      ? {r:'out', why:`With NAT on Lab-Internal, ${vm.name} can open connections out to office devices. Office devices cannot start a connection to ${vm.name}, because NAT hides it behind the host's address.`}
+      : {r:'no', why:`Lab-Internal only connects the host and VMs. Without NAT (or routing) on the host, nothing leaves the internal network.`, stop:'host'};
+    return {r:'no', why:`${swn} is a private switch, so it has no path to the physical network.`, stop:'switch'};
+  }
+  if(target === 'internet'){
+    if(sw === 'ext') return {r:'yes', why:`${vm.name} is on the office LAN, so it uses the office router to reach the internet, exactly like a physical PC.`};
+    if(sw === 'def') return {r:'nat', why:`The Default Switch has built-in NAT and DHCP. ${vm.name} reaches the internet using the host's connection.`};
+    if(sw === 'int') return state.nat
+      ? {r:'nat', why:`NAT is on (New-NetNat). ${vm.name} sends traffic to its default gateway 192.168.50.1 (the host), and the host translates it to its own address.`}
+      : {r:'no', why:`Lab-Internal has no NAT yet. Turn on NAT, or run New-NetIPAddress and New-NetNat on the host, and give ${vm.name} the gateway 192.168.50.1.`, stop:'host'};
+    return {r:'no', why:`${swn} is a private switch. It has no connection to the host or to any physical network, so it can never reach the internet.`, stop:'switch'};
+  }
+}
+function vlanText(v){ return v ? `in VLAN ${v}` : 'untagged'; }
+const LABEL = {yes:'Yes', nat:'Yes (NAT)', out:'Outbound only', no:'No', self:'n/a'};
+
+/* ---------- diagram ---------- */
+const svg = document.getElementById('dia');
+function el(tag, attrs, parent){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); (parent||svg).appendChild(e); return e; }
+function txt(x,y,s,attrs={},parent){ const t=el('text',Object.assign({x,y,'font-size':13,fill:'#16181D'},attrs),parent); t.textContent=s; return t; }
+let linkLayer, packetLayer;
+function drawStatic(){
+  svg.innerHTML='';
+  // office LAN
+  el('rect',{x:40,y:25,width:180,height:56,rx:10,fill:'#EEF4FF',stroke:'#2563EB'});
+  txt(130,48,'Office LAN',{'text-anchor':'middle','font-weight':600});
+  txt(130,67,'office PCs, printer, router',{'text-anchor':'middle','font-size':11,fill:'#3B4250'});
+  // internet cloud
+  const c = el('g',{});
+  [[330,58,26],[360,44,30],[398,50,26],[420,62,20],[372,66,26]].forEach(([x,y,r])=>el('circle',{cx:x,cy:y,r,fill:'#F1F5F9',stroke:'#94A3B8'},c));
+  el('rect',{x:320,y:50,width:110,height:30,fill:'#F1F5F9'},c);
+  txt(375,63,'Internet',{'text-anchor':'middle','font-weight':600},c);
+  el('line',{x1:220,y1:55,x2:308,y2:55,stroke:'#94A3B8','stroke-width':2});
+  txt(264,47,'office router',{'text-anchor':'middle','font-size':10,fill:'#6B7280'});
+  // host boundary
+  el('rect',{x:16,y:100,width:888,height:310,rx:14,fill:'none',stroke:'#16181D','stroke-dasharray':'6 5'});
+  txt(30,402,'Windows host running Hyper-V',{'font-size':12,fill:'#6B7280'});
+  // physical NIC
+  el('rect',{x:100,y:110,width:60,height:20,rx:4,fill:'#16181D'});
+  txt(130,124,'NIC',{'text-anchor':'middle','font-size':11,fill:'#fff','font-weight':600});
+  el('line',{x1:130,y1:110,x2:130,y2:81,stroke:'#2563EB','stroke-width':3});
+  // host OS
+  el('rect',{x:460,y:130,width:220,height:56,rx:10,fill:'#fff',stroke:'#16181D','stroke-width':1.5});
+  txt(570,153,'Host OS (management)',{'text-anchor':'middle','font-weight':600});
+  txt(570,171,'vEthernet adapters',{'text-anchor':'middle','font-size':11,fill:'#3B4250'});
+  el('line',{x1:460,y1:142,x2:160,y2:122,stroke:'#CBD2DA','stroke-width':2});
+  txt(300,124,'host uplink',{'text-anchor':'middle','font-size':10,fill:'#6B7280'});
+  // host to switches
+  el('polyline',{points:'460,170 200,170 200,232',fill:'none',stroke:'#2563EB','stroke-width':1.5,'stroke-dasharray':'4 3'});
+  txt(330,165,'shared (AllowManagementOS)',{'text-anchor':'middle','font-size':10,fill:'#2563EB'});
+  el('line',{x1:520,y1:186,x2:350,y2:232,stroke:'#15803D','stroke-width':1.5,'stroke-dasharray':'4 3'});
+  el('line',{x1:640,y1:186,x2:790,y2:232,stroke:'#0F766E','stroke-width':1.5,'stroke-dasharray':'4 3'});
+  txt(735,204,'NAT',{'font-size':11,fill:'#0F766E','font-weight':600});
+  // NAT badge for internal
+  const nb = el('g',{id:'natBadge'});
+  el('rect',{x:395,y:196,width:44,height:20,rx:5,fill:'#15803D'},nb);
+  txt(417,210,'NAT',{'text-anchor':'middle','font-size':11,fill:'#fff','font-weight':600},nb);
+  // external to NIC
+  el('line',{x1:130,y1:232,x2:130,y2:130,stroke:'#2563EB','stroke-width':3});
+  // switch bars
+  for(const k of ['ext','int','priv','def']){
+    const s=SWITCHES[k];
+    el('rect',{x:s.x1,y:232,width:s.x2-s.x1,height:30,rx:6,fill:s.color});
+    txt((s.x1+s.x2)/2,252,s.name,{'text-anchor':'middle',fill:'#fff','font-weight':600});
+  }
+  linkLayer = el('g',{});
+  // VMs
+  state.vms.forEach((vm,i)=>{
+    const g = el('g',{id:'vmbox'+i});
+    el('rect',{x:VMX[i]-70,y:318,width:140,height:66,rx:10,fill:'#fff',stroke:VM_COLORS[i],'stroke-width':2},g);
+    txt(VMX[i],343,vm.name,{'text-anchor':'middle','font-weight':700,fill:VM_COLORS[i]},g);
+    txt(VMX[i],364,'',{'text-anchor':'middle','font-size':11,fill:'#3B4250',id:'vmsub'+i},g);
+  });
+  packetLayer = el('g',{});
+}
+function barPt(i){
+  const s = SWITCHES[state.vms[i].sw];
+  return [Math.max(s.x1+14, Math.min(s.x2-14, VMX[i])), 262];
+}
+function drawLinks(){
+  linkLayer.innerHTML='';
+  state.vms.forEach((vm,i)=>{
+    const sub = document.getElementById('vmsub'+i);
+    sub.textContent = vm.sw==='none' ? 'not connected' : (vm.vlan ? `VLAN ${vm.vlan}` : 'untagged');
+    if(vm.sw==='none') return;
+    const [bx,by] = barPt(i);
+    el('line',{x1:VMX[i],y1:318,x2:bx,y2:by,stroke:VM_COLORS[i],'stroke-width':2.5},linkLayer);
+  });
+  document.getElementById('natBadge').setAttribute('opacity', state.nat?1:0.15);
+}
+
+/* ---------- ping animation ---------- */
+const P = {NIC:[130,120], LAN:[130,81], INET:[312,55], HOST_EXT:[460,170], HOST_INT:[520,186], HOST_DEF:[640,186], HOSTC:[570,158]};
+function hostPath(sw){
+  if(sw==='ext') return [[200,232],[200,170],P.HOST_EXT];
+  if(sw==='int') return [[350,232],P.HOST_INT];
+  return [[790,232],P.HOST_DEF];
+}
+function pathFor(i, target, res){
+  const vm = state.vms[i];
+  const pts = [[VMX[i],318]];
+  if(vm.sw==='none') return {pts, ok:false};
+  pts.push(barPt(i));
+  if(res.r==='no' && res.stop!=='host') return {pts, ok:false};
+  if(typeof target==='number'){ pts.push(barPt(target)); pts.push([VMX[target],318]); return {pts, ok:true}; }
+  if(target==='host'){ hostPath(vm.sw).forEach(p=>pts.push(p)); return {pts, ok:true}; }
+  // lan / internet
+  if(vm.sw==='ext'){ pts.push([130,262],[130,232],P.NIC,P.LAN); }
+  else { hostPath(vm.sw).forEach(p=>pts.push(p)); if(res.r==='no') return {pts, ok:false}; pts.push(P.HOSTC,[460,142],P.NIC,P.LAN); }
+  if(target==='internet') pts.push([220,55],P.INET);
+  return {pts, ok:res.r!=='no'};
+}
+let animToken = 0;
+function animatePing(i, target){
+  const res = reach(i, target);
+  const {pts, ok} = pathFor(i, target, res);
+  const token = ++animToken;
+  packetLayer.innerHTML='';
+  const dot = el('circle',{r:8,fill:ok?'#15803D':'#B91C1C',stroke:'#fff','stroke-width':2,cx:pts[0][0],cy:pts[0][1]},packetLayer);
+  const segs=[]; let total=0;
+  for(let k=1;k<pts.length;k++){ const d=Math.hypot(pts[k][0]-pts[k-1][0],pts[k][1]-pts[k-1][1]); segs.push(d); total+=d; }
+  const finish = ()=>{
+    const end = pts[pts.length-1];
+    if(!ok){
+      const g = el('g',{},packetLayer);
+      el('line',{x1:end[0]-9,y1:end[1]-9,x2:end[0]+9,y2:end[1]+9,stroke:'#B91C1C','stroke-width':4},g);
+      el('line',{x1:end[0]+9,y1:end[1]-9,x2:end[0]-9,y2:end[1]+9,stroke:'#B91C1C','stroke-width':4},g);
+      dot.remove();
+    } else if(hasGSAP && !reduceMotion){ gsap.fromTo(dot,{attr:{r:8}},{attr:{r:13},duration:.25,yoyo:true,repeat:3}); }
+  };
+  if(reduceMotion || total===0){ dot.setAttribute('cx',pts[pts.length-1][0]); dot.setAttribute('cy',pts[pts.length-1][1]); finish(); return; }
+  const dur = Math.max(700, total*2.2); const t0 = performance.now();
+  function step(now){
+    if(token!==animToken) return;
+    let dist = Math.min(1,(now-t0)/dur)*total, k=0;
+    while(k<segs.length-1 && dist>segs[k]){ dist-=segs[k]; k++; }
+    const f = segs[k]?Math.min(1,dist/segs[k]):1;
+    dot.setAttribute('cx', pts[k][0]+(pts[k+1][0]-pts[k][0])*f);
+    dot.setAttribute('cy', pts[k][1]+(pts[k+1][1]-pts[k][1])*f);
+    if(now-t0<dur) requestAnimationFrame(step); else finish();
+  }
+  requestAnimationFrame(step);
+}
+
+/* ---------- panel ---------- */
+const TARGETS = ()=>[['host','Host'],['lan','Office LAN'],['internet','Internet'],...state.vms.map((v,i)=>[i,v.name])];
+function buildPanel(){
+  const panel = document.getElementById('vmPanel'); panel.innerHTML='';
+  state.vms.forEach((vm,i)=>{
+    const d = document.createElement('div'); d.className='vm';
+    d.innerHTML = `<h3><span class="dot" style="background:${VM_COLORS[i]}"></span>${vm.name}</h3>
+      <div class="row"><label for="sw${i}">Switch</label><select id="sw${i}">${Object.entries(SWITCHES).map(([k,s])=>`<option value="${k}" ${vm.sw===k?'selected':''}>${s.name}</option>`).join('')}</select></div>
+      <div class="row"><label for="vl${i}">VLAN ID</label><input type="number" id="vl${i}" min="1" max="4094" placeholder="none" value="${vm.vlan||''}"><span style="font-size:12px;color:var(--muted)">blank = untagged</span></div>
+      <div class="row"><label for="tg${i}">Ping to</label><select id="tg${i}">${TARGETS().filter(t=>t[0]!==i).map(t=>`<option value="${t[0]}">${t[1]}</option>`).join('')}</select><button class="btn primary" id="pg${i}">Ping</button></div>`;
+    panel.appendChild(d);
+    d.querySelector('#sw'+i).addEventListener('change',e=>{
+      const v=e.target.value; vm.sw=v;
+      if(v==='none') logCmd(`Disconnect-VMNetworkAdapter -VMName ${vm.name}`);
+      else logCmd(`Connect-VMNetworkAdapter -VMName ${vm.name} -SwitchName "${SWITCHES[v].name}"`);
+      refresh();
+    });
+    d.querySelector('#vl'+i).addEventListener('change',e=>{
+      let n = parseInt(e.target.value,10);
+      if(isNaN(n)){ vm.vlan=null; e.target.value=''; logCmd(`Set-VMNetworkAdapterVlan -VMName ${vm.name} -Untagged`); }
+      else { n=Math.max(1,Math.min(4094,n)); e.target.value=n; vm.vlan=n; logCmd(`Set-VMNetworkAdapterVlan -VMName ${vm.name} -Access -VlanId ${n}`); }
+      refresh();
+    });
+    d.querySelector('#pg'+i).addEventListener('click',()=>{
+      const raw = d.querySelector('#tg'+i).value; const t = /^\d+$/.test(raw)?+raw:raw;
+      const res = reach(i,t); animatePing(i,t); showWhy(i,t,res);
+    });
+  });
+}
+function showWhy(i,t,res){
+  const box = document.getElementById('why');
+  const tname = typeof t==='number'? state.vms[t].name : {host:'the host',lan:'the office LAN',internet:'the internet'}[t];
+  box.className = 'feedback ' + ({yes:'ok',nat:'ok',out:'warn',no:'bad'}[res.r]||'info');
+  box.innerHTML = `<b>${state.vms[i].name} to ${tname}: ${LABEL[res.r]}.</b> ${res.why}`;
+}
+function buildMatrix(){
+  const m = document.getElementById('matrix');
+  const cols = TARGETS();
+  let h = '<thead><tr><th>From</th>'+cols.map(c=>`<th>${c[1]}</th>`).join('')+'</tr></thead><tbody>';
+  state.vms.forEach((vm,i)=>{
+    h += `<tr><th scope="row" style="color:${VM_COLORS[i]}">${vm.name}</th>`;
+    cols.forEach(c=>{
+      const res = reach(i,c[0]);
+      h += res.r==='self' ? '<td class="cell self">n/a</td>' : `<td class="cell ${res.r}" tabindex="0" data-i="${i}" data-t="${c[0]}" aria-label="${vm.name} to ${c[1]}: ${LABEL[res.r]}">${LABEL[res.r]}</td>`;
+    });
+    h += '</tr>';
+  });
+  m.innerHTML = h+'</tbody>';
+  m.querySelectorAll('td[data-i]').forEach(td=>{
+    const go=()=>{ const i=+td.dataset.i, raw=td.dataset.t, t=/^\d+$/.test(raw)?+raw:raw; showWhy(i,t,reach(i,t)); };
+    td.addEventListener('click',go);
+    td.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); }});
+  });
+  if(hasGSAP && !reduceMotion) gsap.from('#matrix td.cell',{opacity:.4,duration:.3,stagger:.01});
+}
+const logEl = document.getElementById('log');
+let logLines = [];
+function logCmd(s){ logLines.push(s); renderLog(); }
+function renderLog(){ logEl.textContent = logLines.length? logLines.join('\n') : '# Your commands will appear here as you change the lab.'; logEl.scrollTop = logEl.scrollHeight; }
+document.getElementById('natToggle').addEventListener('change',e=>{
+  state.nat = e.target.checked;
+  if(state.nat){
+    logCmd('New-NetIPAddress -IPAddress 192.168.50.1 -PrefixLength 24 -InterfaceAlias "vEthernet (Lab-Internal)"');
+    logCmd('New-NetNat -Name LabNAT -InternalIPInterfaceAddressPrefix 192.168.50.0/24');
+  } else logCmd('Remove-NetNat -Name LabNAT -Confirm:$false');
+  refresh();
+});
+document.getElementById('copyLog').addEventListener('click',()=>{
+  const t = logLines.join('\n');
+  try{ navigator.clipboard.writeText(t).then(()=>flash('Commands copied.'),()=>flash('Copy failed. Select the text and copy it manually.')); }catch(e){ flash('Copy failed. Select the text and copy it manually.'); }
+});
+document.getElementById('clearLog').addEventListener('click',()=>{ logLines=[]; renderLog(); });
+document.getElementById('reset').addEventListener('click',()=>{ state=DEFAULT(); document.getElementById('natToggle').checked=false; logLines=[]; renderLog(); drawStatic(); buildPanel(); refresh(); });
+function flash(msg){ const b=document.getElementById('why'); b.className='feedback info'; b.textContent=msg; }
+function refresh(){ drawLinks(); buildMatrix(); packetLayer.innerHTML=''; }
+
+drawStatic(); buildPanel(); refresh(); renderLog();
+window.__reach = reach; window.__state = ()=>state; window.__setState = s=>{ state=s; drawStatic(); buildPanel(); refresh(); };
+</script>
+</body>
+</html>

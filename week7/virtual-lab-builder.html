@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Virtual Lab Builder</title>
+<meta name="description" content="CIT-283 Week 7 interactive: design Hyper-V virtual networks that meet real requirements, scored mission by mission.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  .grid>*{min-width:0}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  .steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .steps button{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 12px;cursor:pointer}
+  .steps button.cur{border-color:var(--au-red);color:var(--au-red-dark);background:var(--au-red-soft)}
+  .steps button.done{border-color:#BBE5C8;background:var(--ok-soft);color:#14532D}
+  .steps button.zero{border-color:#F5C2C2;background:var(--bad-soft);color:#7F1D1D}
+  .brief{background:#F8FAFC;border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+  .reqs{margin:8px 0 0 18px;padding:0}
+  .reqs li{margin-bottom:4px}
+  .reqs li.pass{color:#14532D}
+  .reqs li.fail{color:#7F1D1D}
+  .vmcfg{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:#fff}
+  .vmcfg h3{margin-bottom:6px}
+  .fields{display:grid;gap:8px;grid-template-columns:1fr}
+  @media(min-width:560px){.fields{grid-template-columns:1fr 1fr}}
+  .fields label{display:flex;flex-direction:column;font-size:13px;color:var(--muted);gap:3px}
+  .fields input,.fields select{width:100%}
+  .hostbox{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:10px;background:var(--warn-soft);border:1px solid #F6D7AE;margin-bottom:10px;font-size:14px}
+  .hostbox input{width:20px;height:20px;margin-top:2px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .final{text-align:center;padding:30px 20px}
+  .final .big{font-size:56px;font-weight:700;color:var(--au-red-dark);line-height:1}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 7 · Interactive B</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 7 · Challenge</span>
+    <h1>Virtual lab builder challenge</h1>
+    <p class="lede">You are the network administrator for a small Miami company that runs its servers as Hyper-V virtual machines. Each mission gives you requirements. Choose the virtual switch, VLAN ID and IP settings for every VM so the requirements pass. Six missions, 100 points.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this challenge</summary>
+    <ol>
+      <li>Read the mission brief and the list of requirements. Some say a connection must work, others say it must be blocked.</li>
+      <li>Configure each VM. IP fields only matter on Lab-Internal and Lab-Private, because those switches have no DHCP server. External and Default Switch VMs get addresses automatically.</li>
+      <li>On Lab-Internal, the host adapter vEthernet (Lab-Internal) is 192.168.50.1/24. Decide if NAT should be on.</li>
+      <li>Press "Check my design". Each failed check costs points, so think before you click. After two failed checks you can reveal the answer, but the mission then scores zero.</li>
+      <li>Your final score appears after mission 6. Take a screenshot of it for your records.</li>
+    </ol>
+  </details>
+
+  <div class="grid two">
+    <section class="card" id="stage">
+      <div class="steps" id="steps" aria-label="Missions"></div>
+      <div id="missionArea"></div>
+    </section>
+    <aside class="card">
+      <div class="score"><span>Score</span><span class="big" id="scoreBig">0</span><span style="color:var(--muted)">/ 100</span></div>
+      <p style="font-size:14px;color:var(--ink-2);margin:8px 0 14px" id="scoreNote">Mission points shrink by 4 for each failed check, down to a minimum of 40% of the mission value.</p>
+      <h3>Rules this lab follows</h3>
+      <div class="scroll-x"><table class="data">
+        <tr><th>Switch</th><th>Reaches</th></tr>
+        <tr><td>Lab-External</td><td>Host, office LAN (both directions), internet. DHCP from the office router.</td></tr>
+        <tr><td>Lab-Internal</td><td>Host and VMs on the same switch. Internet and office LAN only outbound, and only with NAT plus gateway 192.168.50.1. Static IPs.</td></tr>
+        <tr><td>Lab-Private</td><td>VMs on the same switch only. Static IPs.</td></tr>
+        <tr><td>Default Switch</td><td>Host, internet through NAT, office LAN outbound only. Automatic addressing.</td></tr>
+      </table></div>
+      <p style="font-size:13px;color:var(--muted)">VMs on different switches never talk (no router in this lab). VLAN IDs must match. The host and office LAN are untagged.</p>
+      <h3 style="margin-top:14px">Commands for your design</h3>
+      <div class="cli" id="cmds" tabindex="0" aria-label="PowerShell commands for your current design"></div>
+    </aside>
+  </div>
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+<script>
+const hasGSAP = typeof window.gsap !== 'undefined';
+const SWN = {ext:'Lab-External', int:'Lab-Internal', priv:'Lab-Private', def:'Default Switch', none:'Not connected'};
+const HOST_IP = '192.168.50.1', HOST_NET = '192.168.50.0', HOST_PREFIX = 24;
+
+/* ---------- IP helpers ---------- */
+function ipToInt(s){ const m=/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec((s||'').trim()); if(!m) return null; const o=m.slice(1).map(Number); if(o.some(x=>x>255)) return null; return ((o[0]<<24)>>>0)+(o[1]<<16)+(o[2]<<8)+o[3]; }
+function parseCidr(s){ const m=/^\s*([\d.]+)\s*\/\s*(\d{1,2})\s*$/.exec(s||''); if(!m) return null; const ip=ipToInt(m[1]); const p=+m[2]; if(ip===null||p<1||p>30) return null; const mask=p===0?0:(0xFFFFFFFF<<(32-p))>>>0; const net=(ip&mask)>>>0; const bc=(net|(~mask>>>0))>>>0; if(ip===net||ip===bc) return {bad:'host part is all zeros or all ones (network or broadcast address)'}; return {ip,p,mask,net}; }
+function sameSubnet(a,b){ return a && b && !a.bad && !b.bad && a.p===b.p && a.net===b.net && a.ip!==b.ip; }
+
+/* ---------- reachability with IP ---------- */
+// cfg: {sw, vlan, ip:'a.b.c.d/p', gw}
+function vmIP(c){ return parseCidr(c.ip); }
+function needsStatic(sw){ return sw==='int' || sw==='priv'; }
+function vmToVm(a,b){
+  if(a.sw==='none'||b.sw==='none') return [false,'one of them is not connected'];
+  if(a.sw!==b.sw) return [false,`they are on different switches (${SWN[a.sw]} and ${SWN[b.sw]})`];
+  if((a.vlan||null)!==(b.vlan||null)) return [false,'their VLAN IDs do not match'];
+  if(needsStatic(a.sw)){
+    const x=vmIP(a), y=vmIP(b);
+    if(!x||x.bad||!y||y.bad) return [false,'at least one VM has a missing or invalid static IP address'];
+    if(!sameSubnet(x,y)) return [false,'their IP addresses are not in the same subnet (or are identical)'];
+  }
+  return [true,'same switch, same VLAN, same subnet'];
+}
+function hostToVm(c){
+  if(c.sw==='none') return [false,'the VM is not connected'];
+  if(c.sw==='priv') return [false,'a private switch has no host adapter'];
+  if(c.vlan) return [false,'the VM has a VLAN tag but the host adapter is untagged'];
+  if(c.sw==='int'){ const x=vmIP(c); const h=parseCidr(HOST_IP+'/24'); if(!x||x.bad) return [false,'the VM needs a valid static IP on Lab-Internal']; if(!sameSubnet(x,h)) return [false,'the VM IP is not in the host subnet 192.168.50.0/24 (or it uses .1, the host address)']; }
+  return [true,'the host has an adapter on this switch'];
+}
+function vmToInternet(c, nat){
+  if(c.sw==='none') return [false,'the VM is not connected'];
+  if(c.sw==='priv') return [false,'a private switch has no path out'];
+  if(c.vlan) return [false,'the VLAN tag cuts the VM off from the untagged host and LAN'];
+  if(c.sw==='ext'||c.sw==='def') return [true, c.sw==='ext'?'it uses the office router':'the Default Switch has built-in NAT'];
+  if(!nat) return [false,'Lab-Internal has no NAT'];
+  const x=vmIP(c); if(!x||x.bad||x.p!==24||x.net!==ipToInt(HOST_NET)||x.ip===ipToInt(HOST_IP)) return [false,'the VM IP must be inside the NAT prefix 192.168.50.0/24 and not .1'];
+  if((c.gw||'').trim()!==HOST_IP) return [false,'the VM default gateway must be 192.168.50.1 (the host)'];
+  return [true,'NAT on the host translates it'];
+}
+function lanToVm(c){ // LAN starts the connection
+  if(c.sw!=='ext') return [false, c.sw==='def'||c.sw==='int' ? 'NAT hides the VM, so the LAN cannot start a connection to it' : 'the VM is not on the physical network'];
+  if(c.vlan) return [false,'the VLAN tag does not exist on the untagged office LAN'];
+  return [true,'the VM is a full member of the office LAN'];
+}
+function vmToLan(c, nat){ // VM starts the connection
+  if(c.sw==='ext') return lanToVm(c);
+  return vmToInternet(c, nat);
+}
+
+/* ---------- missions ---------- */
+// req: {type:'vm'|'host'|'inet'|'lanin'|'lanout', a, b, want:true|false, text}
+const MISSIONS = [
+  {title:'Isolated test bench', pts:15, switches:['priv','int','ext','def'], nat:false,
+   brief:'The help desk wants two VMs to practice file sharing. They must talk to each other, but nothing else, not even the host. Use 10.0.0.0/24 for addresses.',
+   vms:['VM-A','VM-B'],
+   reqs:[{type:'vm',a:0,b:1,want:true,text:'VM-A and VM-B can talk to each other'},
+         {type:'host',a:0,want:false,text:'The host cannot reach VM-A'},
+         {type:'host',a:1,want:false,text:'The host cannot reach VM-B'},
+         {type:'inet',a:0,want:false,text:'VM-A cannot reach the internet'}],
+   solution:'Both VMs on Lab-Private, no VLAN (or the same VLAN), static IPs such as 10.0.0.10/24 and 10.0.0.11/24. No gateway is needed.'},
+  {title:'Host management only', pts:15, switches:['int','priv','ext','def'], nat:false,
+   brief:'VM-Admin holds a password vault. Only the host computer may connect to it. It must not be reachable from the office LAN and must not reach the internet.',
+   vms:['VM-Admin'],
+   reqs:[{type:'host',a:0,want:true,text:'The host can reach VM-Admin'},
+         {type:'lanin',a:0,want:false,text:'Office computers cannot start a connection to VM-Admin'},
+         {type:'inet',a:0,want:false,text:'VM-Admin cannot reach the internet'}],
+   solution:'VM-Admin on Lab-Internal with NAT off, static IP in 192.168.50.0/24 such as 192.168.50.20/24. The gateway can stay blank.'},
+  {title:'Web server for the office', pts:15, switches:['ext','def','int','priv'], nat:false,
+   brief:'VM-Web runs the company intranet site. Office computers must be able to open it, and it must download updates from the internet.',
+   vms:['VM-Web'],
+   reqs:[{type:'lanin',a:0,want:true,text:'Office computers can start a connection to VM-Web'},
+         {type:'inet',a:0,want:true,text:'VM-Web can reach the internet'},
+         {type:'host',a:0,want:true,text:'The host can reach VM-Web'}],
+   solution:'VM-Web on Lab-External, untagged. It gets an office address from the office DHCP server. The Default Switch fails because NAT blocks connections started by the office.'},
+  {title:'Web and database pair', pts:15, switches:['int','ext','priv','def'], nat:null,
+   brief:'VM-Web must reach the internet. VM-DB holds customer data and must only talk to VM-Web and the host, never the internet. Both use one network adapter on the same switch.',
+   vms:['VM-Web','VM-DB'],
+   reqs:[{type:'inet',a:0,want:true,text:'VM-Web can reach the internet'},
+         {type:'vm',a:0,b:1,want:true,text:'VM-Web and VM-DB can talk to each other'},
+         {type:'host',a:0,want:true,text:'The host can reach VM-Web'},
+         {type:'host',a:1,want:true,text:'The host can reach VM-DB'},
+         {type:'inet',a:1,want:false,text:'VM-DB cannot reach the internet'}],
+   solution:'Both on Lab-Internal with NAT on. VM-Web: 192.168.50.10/24, gateway 192.168.50.1. VM-DB: 192.168.50.11/24 with no gateway. Without a default gateway, VM-DB can only talk to its own subnet.'},
+  {title:'Two departments, one switch', pts:20, switches:['priv'], nat:false,
+   brief:'You only have Lab-Private. Sales VMs (Sales-1, Sales-2) must talk to each other, HR VMs (HR-1, HR-2) must talk to each other, and Sales must never reach HR. All four already use 10.0.5.0/24.',
+   vms:['Sales-1','Sales-2','HR-1','HR-2'],
+   preset:[{ip:'10.0.5.11/24'},{ip:'10.0.5.12/24'},{ip:'10.0.5.21/24'},{ip:'10.0.5.22/24'}],
+   reqs:[{type:'vm',a:0,b:1,want:true,text:'Sales-1 and Sales-2 can talk'},
+         {type:'vm',a:2,b:3,want:true,text:'HR-1 and HR-2 can talk'},
+         {type:'vm',a:0,b:2,want:false,text:'Sales-1 cannot reach HR-1'},
+         {type:'vm',a:1,b:3,want:false,text:'Sales-2 cannot reach HR-2'}],
+   solution:'Keep everyone on Lab-Private and use VLAN IDs: Sales-1 and Sales-2 on VLAN 10, HR-1 and HR-2 on VLAN 20 (any two different IDs work). VLANs separate them even though the IPs share a subnet.'},
+  {title:'Developer laptop lab', pts:20, switches:['def','ext','int','priv'], nat:null,
+   brief:'VM-Dev is a developer test machine. It must reach the internet and the host must reach it, but office computers must never be able to start a connection to it.',
+   vms:['VM-Dev'],
+   reqs:[{type:'inet',a:0,want:true,text:'VM-Dev can reach the internet'},
+         {type:'host',a:0,want:true,text:'The host can reach VM-Dev'},
+         {type:'lanin',a:0,want:false,text:'Office computers cannot start a connection to VM-Dev'}],
+   solution:'Two correct designs: the Default Switch (built-in NAT), or Lab-Internal with NAT on, an IP such as 192.168.50.30/24 and gateway 192.168.50.1.'}
+];
+
+let cur = 0;
+const results = MISSIONS.map(()=>({fails:0, score:null, revealed:false}));
+const configs = MISSIONS.map(m=>({nat:false, vms:m.vms.map((n,i)=>({sw:'none', vlan:null, ip:(m.preset&&m.preset[i].ip)||'', gw:''}))}));
+
+function evalReq(r, cfg){
+  const v = cfg.vms;
+  let res;
+  if(r.type==='vm') res = vmToVm(v[r.a], v[r.b]);
+  else if(r.type==='host') res = hostToVm(v[r.a]);
+  else if(r.type==='inet') res = vmToInternet(v[r.a], cfg.nat);
+  else if(r.type==='lanin') res = lanToVm(v[r.a]);
+  else res = vmToLan(v[r.a], cfg.nat);
+  return {pass: res[0]===r.want, works: res[0], reason: res[1]};
+}
+function missionPoints(i){ const m=MISSIONS[i], r=results[i]; return Math.max(Math.round(m.pts*0.4), m.pts - 4*r.fails); }
+function total(){ return results.reduce((s,r)=>s+(r.score||0),0); }
+
+function renderSteps(){
+  const s = document.getElementById('steps'); s.innerHTML='';
+  MISSIONS.forEach((m,i)=>{
+    const b=document.createElement('button'); b.textContent=`Mission ${i+1}`;
+    const r=results[i];
+    if(i===cur) b.classList.add('cur'); else if(r.score!==null) b.classList.add(r.score>0?'done':'zero');
+    b.setAttribute('aria-current', i===cur?'step':'false');
+    b.onclick=()=>{ cur=i; render(); };
+    s.appendChild(b);
+  });
+  const f=document.createElement('button'); f.textContent='Results'; if(cur===MISSIONS.length) f.classList.add('cur');
+  f.onclick=()=>{ cur=MISSIONS.length; render(); }; s.appendChild(f);
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function render(){
+  renderSteps();
+  const area=document.getElementById('missionArea');
+  document.getElementById('scoreBig').textContent=total();
+  if(cur===MISSIONS.length){ renderFinal(area); renderCmds(null); return; }
+  const m=MISSIONS[cur], cfg=configs[cur], r=results[cur];
+  const locked = r.score!==null;
+  let h = `<div class="brief"><div class="pill">Mission ${cur+1} of ${MISSIONS.length} · ${m.pts} points</div>
+    <h2 style="margin-top:8px">${m.title}</h2><p style="margin:0">${m.brief}</p>
+    <ul class="reqs" id="reqList">${m.reqs.map((q,k)=>`<li id="rq${k}">${q.want?'Must work':'Must be blocked'}: ${q.text}</li>`).join('')}</ul></div>`;
+  const hasInt = m.switches.includes('int');
+  if(hasInt) h += `<div class="hostbox"><input type="checkbox" id="nat" ${cfg.nat?'checked':''} ${locked?'disabled':''}><div><label for="nat" style="font-weight:600">Turn on NAT for Lab-Internal</label><br>Host adapter vEthernet (Lab-Internal) = 192.168.50.1/24, NAT prefix 192.168.50.0/24.</div></div>`;
+  m.vms.forEach((name,i)=>{
+    const c=cfg.vms[i];
+    h += `<div class="vmcfg"><h3>${name}</h3><div class="fields">
+      <label>Virtual switch<select data-k="sw" data-i="${i}" ${locked?'disabled':''}><option value="none">Not connected</option>${m.switches.map(s=>`<option value="${s}" ${c.sw===s?'selected':''}>${SWN[s]}</option>`).join('')}</select></label>
+      <label>VLAN ID (blank = untagged)<input type="number" min="1" max="4094" data-k="vlan" data-i="${i}" value="${c.vlan||''}" ${locked?'disabled':''}></label>
+      <label>IP address / prefix<input type="text" data-k="ip" data-i="${i}" placeholder="${needsStatic(c.sw)?'e.g. 192.168.50.10/24':'automatic (DHCP)'}" value="${esc(c.ip)}" ${locked||!needsStatic(c.sw)?'disabled':''}></label>
+      <label>Default gateway (optional)<input type="text" data-k="gw" data-i="${i}" placeholder="${needsStatic(c.sw)?'blank = none':'automatic (DHCP)'}" value="${esc(c.gw)}" ${locked||!needsStatic(c.sw)?'disabled':''}></label>
+    </div></div>`;
+  });
+  h += `<div class="actions">
+    <button class="btn primary" id="check" ${locked?'disabled':''}>Check my design</button>
+    <button class="btn" id="reveal" ${(locked||r.fails<2)?'disabled':''} title="Available after two failed checks">Reveal answer (scores 0)</button>
+    ${cur<MISSIONS.length-1?`<button class="btn" id="next">Next mission</button>`:`<button class="btn" id="next">See results</button>`}
+  </div><div id="fb" aria-live="polite"></div>`;
+  area.innerHTML=h;
+  if(locked) showOutcome();
+  area.querySelectorAll('[data-k]').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      const c=cfg.vms[+inp.dataset.i], k=inp.dataset.k;
+      if(k==='vlan'){ const n=parseInt(inp.value,10); c.vlan=isNaN(n)?null:Math.max(1,Math.min(4094,n)); inp.value=c.vlan||''; }
+      else c[k]=inp.value.trim();
+      if(k==='sw'){ render(); return; }
+      renderCmds(cur);
+    });
+  });
+  const nat=document.getElementById('nat'); if(nat) nat.addEventListener('change',()=>{ cfg.nat=nat.checked; renderCmds(cur); });
+  document.getElementById('check').onclick=check;
+  document.getElementById('reveal').onclick=reveal;
+  document.getElementById('next').onclick=()=>{ cur++; render(); };
+  renderCmds(cur);
+}
+function check(){
+  const m=MISSIONS[cur], cfg=configs[cur], r=results[cur];
+  const outs = m.reqs.map(q=>evalReq(q,cfg));
+  outs.forEach((o,k)=>{ const li=document.getElementById('rq'+k); li.className=o.pass?'pass':'fail'; li.textContent=`${o.pass?'Pass':'Fail'}: ${m.reqs[k].text}`+(o.pass?'':` (right now it ${o.works?'works':'is blocked'} because ${o.reason})`); });
+  const fb=document.getElementById('fb');
+  if(outs.every(o=>o.pass)){
+    r.score = missionPoints(cur);
+    fb.innerHTML=`<div class="feedback ok"><b>Mission complete: +${r.score} points.</b> ${m.solution}</div>`;
+    if(hasGSAP) gsap.fromTo('#scoreBig',{scale:1},{scale:1.35,duration:.2,yoyo:true,repeat:1});
+    document.getElementById('scoreBig').textContent=total();
+    renderSteps();
+    document.getElementById('check').disabled=true; document.getElementById('reveal').disabled=true;
+    document.querySelectorAll('#missionArea [data-k], #nat').forEach(e=>e.disabled=true);
+  } else {
+    r.fails++;
+    fb.innerHTML=`<div class="feedback bad"><b>${outs.filter(o=>!o.pass).length} requirement(s) failed.</b> This mission is now worth up to ${missionPoints(cur)} points. Read the reasons in red, adjust, and check again.</div>`;
+    document.getElementById('reveal').disabled = r.fails<2;
+    if(hasGSAP) gsap.fromTo('#fb',{x:-6},{x:0,duration:.4,ease:'elastic.out(1,0.3)'});
+  }
+}
+function reveal(){
+  const r=results[cur]; r.score=0; r.revealed=true;
+  showOutcome(); renderSteps(); document.getElementById('scoreBig').textContent=total();
+  document.getElementById('check').disabled=true; document.getElementById('reveal').disabled=true;
+  document.querySelectorAll('#missionArea [data-k], #nat').forEach(e=>e.disabled=true);
+}
+function showOutcome(){
+  const r=results[cur], m=MISSIONS[cur];
+  document.getElementById('fb').innerHTML = r.revealed
+    ? `<div class="feedback info"><b>Answer (0 points):</b> ${m.solution}</div>`
+    : `<div class="feedback ok"><b>Completed for ${r.score} points.</b> ${m.solution}</div>`;
+}
+function renderCmds(i){
+  const box=document.getElementById('cmds');
+  if(i===null){ box.textContent='# Open a mission to see commands.'; return; }
+  const m=MISSIONS[i], cfg=configs[i]; const L=[];
+  if(cfg.nat && m.switches.includes('int')){
+    L.push('# On the host (PowerShell as Administrator)');
+    L.push('New-NetIPAddress -IPAddress 192.168.50.1 -PrefixLength 24 -InterfaceAlias "vEthernet (Lab-Internal)"');
+    L.push('New-NetNat -Name LabNAT -InternalIPInterfaceAddressPrefix 192.168.50.0/24');
+  }
+  m.vms.forEach((n,k)=>{
+    const c=cfg.vms[k];
+    if(c.sw==='none') L.push(`Disconnect-VMNetworkAdapter -VMName ${n}`);
+    else L.push(`Connect-VMNetworkAdapter -VMName ${n} -SwitchName "${SWN[c.sw]}"`);
+    L.push(c.vlan?`Set-VMNetworkAdapterVlan -VMName ${n} -Access -VlanId ${c.vlan}`:`Set-VMNetworkAdapterVlan -VMName ${n} -Untagged`);
+  });
+  const st = m.vms.map((n,k)=>[n,cfg.vms[k]]).filter(([n,c])=>needsStatic(c.sw) && c.ip);
+  if(st.length){ L.push('','# Inside each Ubuntu VM: /etc/netplan/50-cloud-init.yaml, then sudo netplan apply');
+    st.forEach(([n,c])=>{ L.push(`# ${n}: addresses: [${c.ip}]`+(c.gw?`  routes: - to: default  via: ${c.gw}`:'  (no default route)')); }); }
+  box.textContent=L.join('\n');
+}
+function renderFinal(area){
+  const t=total(); const done=results.filter(r=>r.score!==null).length;
+  let msg = t>=90?'Excellent. You can design Hyper-V networks with confidence.':t>=70?'Good work. Review the missions where you lost points.':'Review the switch rules table, then try the missions again (reload the page to restart).';
+  area.innerHTML=`<div class="final"><div class="pill">Final score</div><div class="big" style="margin:12px 0">${t}<span style="font-size:22px;color:var(--muted)"> / 100</span></div>
+  <p>${done} of ${MISSIONS.length} missions finished. ${msg}</p>
+  <div class="scroll-x"><table class="data" style="max-width:520px;margin:12px auto;text-align:left"><tr><th>Mission</th><th>Failed checks</th><th>Points</th></tr>
+  ${MISSIONS.map((m,i)=>`<tr><td>${i+1}. ${m.title}</td><td>${results[i].fails}</td><td>${results[i].score===null?'not finished':results[i].score+' / '+m.pts}</td></tr>`).join('')}</table></div>
+  <button class="btn primary" onclick="location.reload()">Start over</button></div>`;
+  if(hasGSAP) gsap.from('.final .big',{scale:.6,opacity:0,duration:.5,ease:'back.out(2)'});
+}
+render();
+window.__test = {MISSIONS, configs, evalReq, vmToVm, hostToVm, vmToInternet, lanToVm};
+</script>
+</body>
+</html>

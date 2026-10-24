@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Azure VNet Planner</title>
+<meta name="description" content="CIT-283 Week 8 interactive: plan Azure virtual networks and subnets, see usable addresses, find overlaps, and check peering and VPN options.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;min-width:0}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn.small{padding:5px 10px;font-size:13px}
+  .btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+  input[type=text],select{font:inherit;font-size:15px;padding:7px 9px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0;width:100%}
+  input.mono{font-family:var(--mono);font-size:14px}
+  input.err{border-color:var(--bad);background:#FFF8F8}
+  .mono,code{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:12.5px;line-height:1.55;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre;max-height:420px}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .pill.ok{background:var(--ok-soft);color:#14532D}
+  .pill.bad{background:var(--bad-soft);color:#7F1D1D}
+  .pill.warn{background:var(--warn-soft);color:#7C2D12}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  /* planner */
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .onprem{display:grid;grid-template-columns:1fr;gap:8px;background:#F8FAFC;border:1px dashed #C9CED6;border-radius:10px;padding:12px;margin-bottom:14px}
+  @media(min-width:560px){.onprem{grid-template-columns:auto 1fr;align-items:center}}
+  .onprem label{font-weight:600;font-size:14px}
+  .vnet{border:1px solid var(--line);border-left:5px solid var(--net-blue);border-radius:10px;padding:14px;margin-bottom:14px;background:#fff}
+  .vnet-head{display:grid;grid-template-columns:1fr;gap:8px}
+  @media(min-width:560px){.vnet-head{grid-template-columns:1fr 1fr auto;align-items:end}}
+  .fld{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .fld span{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .bar{position:relative;height:34px;border-radius:8px;background:repeating-linear-gradient(135deg,#F1F3F6,#F1F3F6 6px,#E9ECF1 6px,#E9ECF1 12px);margin:12px 0 6px;overflow:hidden;border:1px solid var(--line)}
+  .seg{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;overflow:hidden;white-space:nowrap;border-right:1px solid rgba(255,255,255,.7);cursor:pointer;min-width:3px}
+  .seg.bad{background:var(--bad)!important}
+  .bar-legend{display:flex;flex-wrap:wrap;gap:2px 10px;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .subrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}
+  @media(min-width:560px){.subrow{grid-template-columns:1fr 1fr auto}}
+  .subrow .rm{grid-column:1/-1;justify-self:start}
+  @media(min-width:560px){.subrow .rm{grid-column:auto;align-self:end}}
+  .linkbtn{font:inherit;font-size:13px;background:none;border:0;padding:0;color:var(--au-red-dark);text-decoration:underline;cursor:pointer}
+  .subrow .swatch{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px}
+  .subinfo{grid-column:1/-1;font-size:13px;color:var(--ink-2);margin:-2px 0 2px}
+  .subinfo .x{color:var(--bad);font-weight:600}
+  .subinfo .w{color:var(--warn);font-weight:600}
+  .chk{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .chk:last-child{border-bottom:0}
+  .chk .ic{flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff}
+  .ic.ok{background:var(--ok)} .ic.bad{background:var(--bad)} .ic.warn{background:var(--warn)}
+  .reserved td:first-child{font-family:var(--mono)}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .tabs button{font:inherit;font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer}
+  .tabs button[aria-selected=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .peer td.cellok{background:var(--ok-soft);color:#14532D;font-weight:600}
+  .peer td.cellbad{background:var(--bad-soft);color:#7F1D1D;font-weight:600}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 8 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 8 · Explorer</span>
+    <h1>Azure VNet planner</h1>
+    <p class="lede">Plan Azure virtual networks the way you planned subnets in Week 2. The planner shows how many addresses each Azure subnet really gives you, warns you about overlaps, and tells you which networks can be peered or connected to the office over a VPN.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Start with the on-premises range. This is the address space your headquarters already uses (10.10.0.0/16 by default).</li>
+      <li>Edit a VNet address space or a subnet, then press Enter or click outside the box. The bar redraws and every check updates.</li>
+      <li>Click a colored subnet on the bar, or the "see the 5 reserved" link under a subnet, to list the five addresses Azure keeps in it.</li>
+      <li>Load the example designs to compare a clean hub-and-spoke plan with a plan that breaks because of an overlap.</li>
+      <li>Open the Azure CLI tab to see the commands that would build your plan. They are for reading only; in Assignment 8.1 you build the network in the portal.</li>
+    </ol>
+  </details>
+
+  <div class="grid two">
+    <section class="card">
+      <h2>Your plan</h2>
+      <div class="toolbar">
+        <button class="btn small" id="exClass">Load Assignment 8.1 plan</button>
+        <button class="btn small" id="exHub">Load hub-and-spoke example</button>
+        <button class="btn small" id="exBad">Load an overlap problem</button>
+        <button class="btn small primary" id="addVnet">Add a VNet</button>
+      </div>
+      <div class="onprem">
+        <label for="onprem">On-premises range (headquarters)</label>
+        <input type="text" id="onprem" class="mono" value="10.10.0.0/16" aria-describedby="onpremHelp">
+        <div id="onpremHelp" style="grid-column:1/-1;font-size:13px;color:var(--muted)">Azure ranges must not overlap this range if the office will ever connect to Azure through a VPN gateway.</div>
+      </div>
+      <div id="vnets"></div>
+    </section>
+
+    <aside class="card">
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="checks">Checks</button>
+        <button role="tab" aria-selected="false" data-tab="connect">Peering and VPN</button>
+        <button role="tab" aria-selected="false" data-tab="cli">Azure CLI</button>
+      </div>
+      <div id="tab-checks"></div>
+      <div id="tab-connect" hidden></div>
+      <div id="tab-cli" hidden>
+        <p style="margin:0 0 8px;font-size:14px;color:var(--ink-2)">Read-only. These commands match your plan. Peering must be created in both directions.</p>
+        <div class="cli" id="cli"></div>
+      </div>
+      <div id="detail" class="feedback info" aria-live="polite">Click a subnet on a bar, or "see the 5 reserved" under a subnet, to list the addresses Azure keeps.</div>
+    </aside>
+  </div>
+
+  <section class="card" style="margin-top:16px">
+    <h2>Rules Azure applies to every subnet</h2>
+    <div class="scroll-x">
+    <table class="data">
+      <tr><th>Rule</th><th>What it means for your plan</th></tr>
+      <tr><td>Five reserved addresses</td><td>Azure keeps the first four addresses and the last address of every subnet. A /24 has 256 addresses but only 251 you can assign.</td></tr>
+      <tr><td>Smallest subnet is /29</td><td>A /29 has 8 addresses, 3 usable after the reservation. Azure rejects /30, /31 and /32 subnets.</td></tr>
+      <tr><td>Subnets live inside the VNet</td><td>Every subnet must fit inside its VNet address space, and subnets in the same VNet cannot overlap.</td></tr>
+      <tr><td>Use private ranges</td><td>Use RFC 1918 ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) for VNets so they never collide with real internet addresses.</td></tr>
+      <tr><td>Peering needs unique ranges</td><td>Two VNets can be peered only when their address spaces do not overlap. Peering is not transitive: if A peers with B and B peers with C, A still cannot reach C.</td></tr>
+    </table>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+<script>
+const hasGSAP = typeof window.gsap !== 'undefined';
+const COLORS = ['#2563EB','#15803D','#7C3AED','#B45309','#0F766E','#BE185D','#4338CA','#0369A1'];
+const VCOL = ['#2563EB','#0F766E','#7C3AED','#B45309','#BE185D'];
+
+/* ---------- address math ---------- */
+function ipToInt(s){
+  const m=/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec((s||'').trim());
+  if(!m) return null; const o=m.slice(1).map(Number); if(o.some(x=>x>255)) return null;
+  return ((o[0]*16777216)+(o[1]*65536)+(o[2]*256)+o[3]);
+}
+function intToIp(n){ return [Math.floor(n/16777216)%256, Math.floor(n/65536)%256, Math.floor(n/256)%256, n%256].join('.'); }
+function parseCidr(s){
+  const m=/^\s*([\d.]+)\s*\/\s*(\d{1,2})\s*$/.exec(s||'');
+  if(!m) return {err:'Use the format a.b.c.d/prefix, for example 10.20.1.0/24.'};
+  const ip=ipToInt(m[1]); const p=+m[2];
+  if(ip===null) return {err:'That is not a valid IPv4 address.'};
+  if(p<8||p>32) return {err:'Use a prefix between /8 and /32.'};
+  const size=Math.pow(2,32-p); const net=Math.floor(ip/size)*size;
+  return {ip, p, size, net, end:net+size-1, aligned: ip===net, text:intToIp(net)+'/'+p};
+}
+function overlaps(a,b){ return a.net<=b.end && b.net<=a.end; }
+function contains(outer, inner){ return inner.net>=outer.net && inner.end<=outer.end; }
+function isPrivate(c){
+  const blocks=[parseCidr('10.0.0.0/8'),parseCidr('172.16.0.0/12'),parseCidr('192.168.0.0/16')];
+  return blocks.some(b=>contains(b,c));
+}
+function azureUsable(p){ return p>29 ? 0 : Math.pow(2,32-p)-5; }
+
+/* ---------- state ---------- */
+const PRESETS = {
+  cls: { onprem:'10.10.0.0/16', vnets:[
+    {name:'vnet-hq', space:'10.20.0.0/16', subnets:[{name:'snet-web',cidr:'10.20.1.0/24'},{name:'snet-app',cidr:'10.20.2.0/24'}]},
+    {name:'vnet-branch', space:'10.30.0.0/16', subnets:[{name:'snet-branch',cidr:'10.30.1.0/24'}]} ]},
+  hub: { onprem:'10.10.0.0/16', vnets:[
+    {name:'vnet-hub', space:'10.100.0.0/22', subnets:[{name:'GatewaySubnet',cidr:'10.100.0.0/27'},{name:'snet-shared',cidr:'10.100.1.0/24'}]},
+    {name:'vnet-spoke-web', space:'10.101.0.0/22', subnets:[{name:'snet-web',cidr:'10.101.0.0/24'},{name:'snet-app',cidr:'10.101.1.0/24'}]},
+    {name:'vnet-spoke-data', space:'10.102.0.0/22', subnets:[{name:'snet-db',cidr:'10.102.0.0/26'},{name:'snet-backup',cidr:'10.102.0.64/29'}]} ]},
+  bad: { onprem:'10.10.0.0/16', vnets:[
+    {name:'vnet-prod', space:'10.10.0.0/16', subnets:[{name:'snet-web',cidr:'10.10.1.0/24'},{name:'snet-app',cidr:'10.10.1.128/25'}]},
+    {name:'vnet-test', space:'10.10.128.0/17', subnets:[{name:'snet-test',cidr:'10.10.200.0/30'}]},
+    {name:'vnet-dev', space:'10.40.0.0/16', subnets:[{name:'snet-dev',cidr:'10.41.0.0/24'}]} ]}
+};
+let state = JSON.parse(JSON.stringify(PRESETS.cls));
+
+/* ---------- analysis ---------- */
+function analyze(){
+  const res = {onprem: parseCidr(state.onprem), vnets:[], checks:[]};
+  const add=(kind,text)=>res.checks.push({kind,text});
+  if(res.onprem.err) add('bad','On-premises range: '+res.onprem.err);
+  state.vnets.forEach((v,vi)=>{
+    const sp=parseCidr(v.space); const info={sp, subs:[]};
+    if(sp.err){ add('bad',`${v.name}: address space ${sp.err}`); }
+    else{
+      if(!sp.aligned) add('bad',`${v.name}: ${v.space} is not a network address. Azure would expect ${sp.text}.`);
+      if(!isPrivate(sp)) add('warn',`${v.name}: ${sp.text} is not a private RFC 1918 range. Use 10.x, 172.16 to 172.31, or 192.168.`);
+      if(!res.onprem.err && overlaps(sp,res.onprem)) add('bad',`${v.name}: ${sp.text} overlaps the on-premises range ${res.onprem.text}. A VPN to headquarters would not work.`);
+      if(sp.p>29) add('bad',`${v.name}: a /${sp.p} address space is too small for any Azure subnet.`);
+    }
+    v.subnets.forEach((s,si)=>{
+      const c=parseCidr(s.cidr); const issues=[]; const warns=[];
+      if(c.err) issues.push(c.err);
+      else{
+        if(!c.aligned) issues.push(`not a network address, did you mean ${c.text}?`);
+        if(c.p>29) issues.push(`/${c.p} is smaller than /29, the smallest subnet Azure allows`);
+        if(!sp.err && !contains(sp,c)) issues.push(`outside the VNet address space ${sp.text}`);
+        v.subnets.forEach((o,oi)=>{ if(oi!==si){ const oc=parseCidr(o.cidr); if(!oc.err && overlaps(c,oc)) issues.push(`overlaps ${o.name} (${oc.text})`); } });
+        if(s.name==='GatewaySubnet' && c.p>27) warns.push('Microsoft recommends /27 or larger for GatewaySubnet');
+      }
+      issues.forEach(t=>add('bad',`${v.name} / ${s.name}: ${t}.`));
+      warns.forEach(t=>add('warn',`${v.name} / ${s.name}: ${t}.`));
+      info.subs.push({c, issues, warns});
+    });
+    if(!v.subnets.length) add('warn',`${v.name}: has no subnets yet. Resources can only be placed in a subnet.`);
+    res.vnets.push(info);
+  });
+  // VNet to VNet overlap
+  for(let i=0;i<state.vnets.length;i++) for(let j=i+1;j<state.vnets.length;j++){
+    const a=res.vnets[i].sp, b=res.vnets[j].sp;
+    if(!a.err && !b.err && overlaps(a,b)) add('bad',`${state.vnets[i].name} and ${state.vnets[j].name} overlap (${a.text} and ${b.text}). They can never be peered.`);
+  }
+  // names
+  const names=state.vnets.map(v=>v.name.trim());
+  if(new Set(names).size!==names.length) add('bad','Two VNets have the same name. Names must be unique inside a resource group.');
+  if(!res.checks.some(c=>c.kind==='bad')) res.checks.unshift({kind:'ok',text:'No address errors. Every subnet fits its VNet, nothing overlaps, and every subnet is /29 or larger.'});
+  return res;
+}
+
+/* ---------- rendering ---------- */
+const vnetsEl=document.getElementById('vnets');
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function render(){
+  const A=analyze();
+  document.getElementById('onprem').classList.toggle('err', !!A.onprem.err);
+  vnetsEl.innerHTML='';
+  state.vnets.forEach((v,vi)=>{
+    const info=A.vnets[vi]; const col=VCOL[vi%VCOL.length];
+    const box=document.createElement('div'); box.className='vnet'; box.style.borderLeftColor=col;
+    let segs='';
+    if(!info.sp.err){
+      info.subs.forEach((s,si)=>{
+        if(s.c.err || !overlaps(s.c, info.sp)) return;
+        const start=Math.max(s.c.net,info.sp.net), end=Math.min(s.c.end,info.sp.end);
+        const left=(start-info.sp.net)/info.sp.size*100, width=(end-start+1)/info.sp.size*100;
+        segs+=`<div class="seg${s.issues.length?' bad':''}" style="left:${left}%;width:${width}%;background:${COLORS[si%COLORS.length]}" data-v="${vi}" data-s="${si}" tabindex="0" role="button" aria-label="${esc(v.subnets[si].name)} ${esc(s.c.text)}">${width>9?esc(v.subnets[si].name):''}</div>`;
+      });
+    }
+    const used = info.sp.err?0:info.subs.filter(s=>!s.c.err&&contains(info.sp,s.c)).reduce((t,s)=>t+s.c.size,0);
+    box.innerHTML=`
+      <div class="vnet-head">
+        <label class="fld"><span>VNet name</span><input type="text" value="${esc(v.name)}" data-k="name" data-v="${vi}"></label>
+        <label class="fld"><span>Address space</span><input type="text" class="mono${info.sp.err?' err':''}" value="${esc(v.space)}" data-k="space" data-v="${vi}"></label>
+        <button class="btn small ghost" data-del="${vi}" aria-label="Remove ${esc(v.name)}">Remove</button>
+      </div>
+      <div class="bar" aria-hidden="false">${segs}</div>
+      <div class="bar-legend"><span>${info.sp.err?'':intToIp(info.sp.net)}</span><span>${info.sp.err?'invalid address space':`${info.sp.size.toLocaleString()} addresses, ${Math.round(used/info.sp.size*1000)/10}% assigned to subnets`}</span><span>${info.sp.err?'':intToIp(info.sp.end)}</span></div>
+      <div class="subs"></div>
+      <button class="btn small" data-addsub="${vi}" style="margin-top:10px">Add subnet</button>`;
+    const subsEl=box.querySelector('.subs');
+    v.subnets.forEach((s,si)=>{
+      const si_=info.subs[si];
+      const row=document.createElement('div'); row.className='subrow';
+      let infoTxt='';
+      if(si_.c.err) infoTxt=`<span class="x">${esc(si_.c.err)}</span>`;
+      else {
+        infoTxt=`${si_.c.size.toLocaleString()} addresses, <b>${azureUsable(si_.c.p).toLocaleString()} usable in Azure</b> (<button class="linkbtn" data-res="${vi}:${si}">see the 5 reserved</button>)`;
+        if(si_.issues.length) infoTxt+=` · <span class="x">${esc(si_.issues.join('; '))}</span>`;
+        if(si_.warns.length) infoTxt+=` · <span class="w">${esc(si_.warns.join('; '))}</span>`;
+      }
+      row.innerHTML=`
+        <label class="fld"><span><i class="swatch" style="background:${COLORS[si%COLORS.length]}"></i>Subnet name</span><input type="text" value="${esc(s.name)}" data-k="sname" data-v="${vi}" data-s="${si}"></label>
+        <label class="fld"><span>Address range</span><input type="text" class="mono${si_.issues.length||si_.c.err?' err':''}" value="${esc(s.cidr)}" data-k="cidr" data-v="${vi}" data-s="${si}"></label>
+        <button class="btn small ghost rm" data-delsub="${vi}:${si}" aria-label="Remove subnet ${esc(s.name)}">Remove</button>
+        <div class="subinfo">${infoTxt}</div>`;
+      subsEl.appendChild(row);
+    });
+    vnetsEl.appendChild(box);
+  });
+  renderChecks(A); renderConnect(A); renderCli(A);
+}
+
+function renderChecks(A){
+  const el=document.getElementById('tab-checks');
+  const bad=A.checks.filter(c=>c.kind==='bad').length, warn=A.checks.filter(c=>c.kind==='warn').length;
+  el.innerHTML=`<h2>Checks</h2><p style="margin:0 0 8px"><span class="pill ${bad?'bad':'ok'}">${bad} error${bad===1?'':'s'}</span> <span class="pill ${warn?'warn':''}">${warn} warning${warn===1?'':'s'}</span></p>`+
+    A.checks.map(c=>`<div class="chk"><span class="ic ${c.kind}">${c.kind==='ok'?'&#10003;':c.kind==='bad'?'!':'?'}</span><span>${esc(c.text)}</span></div>`).join('');
+}
+
+function renderConnect(A){
+  const el=document.getElementById('tab-connect');
+  const n=state.vnets.length;
+  let html='<h2>Peering matrix</h2><p style="margin:0 0 8px;font-size:14px;color:var(--ink-2)">Peering is possible only between VNets whose address spaces do not overlap.</p><div class="scroll-x"><table class="data peer"><tr><th></th>';
+  state.vnets.forEach(v=>html+=`<th>${esc(v.name)}</th>`); html+='</tr>';
+  for(let i=0;i<n;i++){
+    html+=`<tr><th>${esc(state.vnets[i].name)}</th>`;
+    for(let j=0;j<n;j++){
+      if(i===j){ html+='<td>-</td>'; continue; }
+      const a=A.vnets[i].sp, b=A.vnets[j].sp;
+      if(a.err||b.err){ html+='<td>?</td>'; continue; }
+      const ok=!overlaps(a,b);
+      html+=`<td class="${ok?'cellok':'cellbad'}">${ok?'Can peer':'Overlap'}</td>`;
+    }
+    html+='</tr>';
+  }
+  html+='</table></div><h2 style="margin-top:16px">Site-to-site VPN to headquarters</h2>';
+  html+=state.vnets.map((v,i)=>{
+    const sp=A.vnets[i].sp;
+    if(sp.err||A.onprem.err) return `<div class="chk"><span class="ic warn">?</span><span>${esc(v.name)}: fix the address first.</span></div>`;
+    const ok=!overlaps(sp,A.onprem);
+    return `<div class="chk"><span class="ic ${ok?'ok':'bad'}">${ok?'&#10003;':'!'}</span><span>${esc(v.name)} (${sp.text}): ${ok?'can connect to '+A.onprem.text+' through a VPN gateway':'overlaps '+A.onprem.text+', so the routers could not tell office and cloud apart'}.</span></div>`;
+  }).join('');
+  html+=`<div class="feedback info" style="font-size:14px">Peering is not transitive. In a hub-and-spoke design, each spoke peers with the hub only, so spoke-to-spoke traffic needs extra routing through the hub (or its own peering). The VPN gateway itself is not deployed in this course because it is billed by the hour.</div>`;
+  el.innerHTML=html;
+}
+
+function renderCli(A){
+  const rg='rg-cit283-lastname', loc='eastus';
+  let t=`az group create --name ${rg} --location ${loc}\n\n`;
+  state.vnets.forEach((v,i)=>{
+    const sp=A.vnets[i].sp;
+    t+=`az network vnet create \\\n  --resource-group ${rg} \\\n  --name ${v.name} \\\n  --location ${loc} \\\n  --address-prefixes ${sp.err?'<fix-address-space>':sp.text}\n\n`;
+    v.subnets.forEach((s,si)=>{
+      const c=A.vnets[i].subs[si].c;
+      t+=`az network vnet subnet create \\\n  --resource-group ${rg} \\\n  --vnet-name ${v.name} \\\n  --name ${s.name} \\\n  --address-prefixes ${c.err?'<fix-subnet>':c.text}\n\n`;
+    });
+  });
+  if(state.vnets.length>=2){
+    const a=state.vnets[0].name, b=state.vnets[1].name;
+    const sa=A.vnets[0].sp, sb=A.vnets[1].sp;
+    if(!sa.err && !sb.err && !overlaps(sa,sb)){
+      t+=`# peering is created in both directions\n`;
+      t+=`az network vnet peering create \\\n  --resource-group ${rg} \\\n  --name ${a}-to-${b} \\\n  --vnet-name ${a} \\\n  --remote-vnet ${b} \\\n  --allow-vnet-access\n\n`;
+      t+=`az network vnet peering create \\\n  --resource-group ${rg} \\\n  --name ${b}-to-${a} \\\n  --vnet-name ${b} \\\n  --remote-vnet ${a} \\\n  --allow-vnet-access\n\n`;
+    } else t+=`# ${a} and ${b} overlap, so no peering command is shown\n\n`;
+  }
+  t+=`# when you are done, delete everything to stop charges\naz group delete --name ${rg} --yes`;
+  document.getElementById('cli').textContent=t;
+}
+
+function showDetail(vi,si){
+  const v=state.vnets[vi], s=v.subnets[si]; const c=parseCidr(s.cidr);
+  const el=document.getElementById('detail');
+  if(c.err){ el.className='feedback bad'; el.textContent=`${s.name}: ${c.err}`; return; }
+  if(c.p>29){ el.className='feedback bad'; el.textContent=`${s.name} is a /${c.p}. Azure needs at least a /29, because 5 addresses are reserved.`; return; }
+  const n=c.net;
+  el.className='feedback info';
+  el.innerHTML=`<b>${esc(s.name)}</b> ${c.text}: ${c.size} addresses, ${azureUsable(c.p)} usable.
+  <table class="data reserved" style="margin-top:8px;background:#fff;border-radius:8px">
+    <tr><th>Address</th><th>Reserved for</th></tr>
+    <tr><td>${intToIp(n)}</td><td>Network address</td></tr>
+    <tr><td>${intToIp(n+1)}</td><td>Default gateway (Azure)</td></tr>
+    <tr><td>${intToIp(n+2)}</td><td>Azure DNS mapping</td></tr>
+    <tr><td>${intToIp(n+3)}</td><td>Azure DNS mapping</td></tr>
+    <tr><td>${intToIp(c.end)}</td><td>Broadcast address</td></tr>
+    <tr><td>${intToIp(n+4)} to ${intToIp(c.end-1)}</td><td>Yours to assign to VMs</td></tr>
+  </table>`;
+  if(hasGSAP) gsap.from(el,{opacity:0,y:6,duration:.25});
+}
+
+/* ---------- events ---------- */
+vnetsEl.addEventListener('change',e=>{
+  const t=e.target; const k=t.dataset.k; if(!k) return;
+  const v=state.vnets[+t.dataset.v];
+  if(k==='name') v.name=t.value.trim()||'vnet';
+  if(k==='space') v.space=t.value.trim();
+  if(k==='sname') v.subnets[+t.dataset.s].name=t.value.trim()||'snet';
+  if(k==='cidr') v.subnets[+t.dataset.s].cidr=t.value.trim();
+  render();
+});
+vnetsEl.addEventListener('keydown',e=>{ if(e.key==='Enter' && e.target.tagName==='INPUT'){ e.target.blur(); } });
+vnetsEl.addEventListener('click',e=>{
+  const t=e.target.closest('button,.seg'); if(!t) return;
+  if(t.dataset.del!==undefined){ state.vnets.splice(+t.dataset.del,1); render(); }
+  else if(t.dataset.addsub!==undefined){ addSubnet(+t.dataset.addsub); }
+  else if(t.dataset.delsub!==undefined){ const [a,b]=t.dataset.delsub.split(':').map(Number); state.vnets[a].subnets.splice(b,1); render(); }
+  else if(t.dataset.res!==undefined){ const [a,b]=t.dataset.res.split(':').map(Number); showDetail(a,b); document.getElementById('detail').scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  else if(t.classList.contains('seg')){ showDetail(+t.dataset.v,+t.dataset.s); }
+});
+vnetsEl.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ') && e.target.classList.contains('seg')){ e.preventDefault(); showDetail(+e.target.dataset.v,+e.target.dataset.s); } });
+
+function addSubnet(vi){
+  const v=state.vnets[vi]; const sp=parseCidr(v.space);
+  let cidr='';
+  if(!sp.err){
+    // next free /24 (or the VNet size if smaller) after existing subnets
+    const p=Math.max(sp.p,24); const size=Math.pow(2,32-p);
+    const used=v.subnets.map(s=>parseCidr(s.cidr)).filter(c=>!c.err);
+    for(let n=sp.net;n+size-1<=sp.end;n+=size){ const cand={net:n,end:n+size-1}; if(!used.some(u=>overlaps(u,cand))){ cidr=intToIp(n)+'/'+p; break; } }
+  }
+  v.subnets.push({name:'snet-'+(v.subnets.length+1), cidr: cidr||'10.0.0.0/24'}); render();
+}
+document.getElementById('addVnet').onclick=()=>{
+  if(state.vnets.length>=5){ alertBox('This planner holds up to five VNets.'); return; }
+  const taken=state.vnets.map(v=>parseCidr(v.space)).filter(c=>!c.err);
+  const op=parseCidr(state.onprem);
+  let space='10.50.0.0/16';
+  for(let o=20;o<250;o+=10){ const c=parseCidr(`10.${o}.0.0/16`); if(!taken.some(t=>overlaps(t,c)) && (op.err||!overlaps(op,c))){ space=c.text; break; } }
+  state.vnets.push({name:'vnet-'+(state.vnets.length+1), space, subnets:[{name:'snet-1', cidr:space.replace('.0.0/16','.1.0/24')}]}); render();
+};
+function alertBox(msg){ const el=document.getElementById('detail'); el.className='feedback bad'; el.textContent=msg; }
+document.getElementById('onprem').addEventListener('change',e=>{ state.onprem=e.target.value.trim(); render(); });
+document.getElementById('onprem').addEventListener('keydown',e=>{ if(e.key==='Enter') e.target.blur(); });
+function load(k){ state=JSON.parse(JSON.stringify(PRESETS[k])); document.getElementById('onprem').value=state.onprem; render(); const el=document.getElementById('detail'); el.className='feedback info';
+  el.textContent = k==='bad' ? 'This plan has several problems. Open the Checks tab and fix them one at a time: change address spaces so nothing overlaps the office, move subnets inside their VNet, and replace the /30.' : k==='hub' ? 'Hub-and-spoke: the hub holds shared services and the GatewaySubnet for a future VPN. Each spoke peers with the hub. Check the Peering and VPN tab.' : 'This is the network you will build in Assignment 8.1.';
+  if(hasGSAP) gsap.from('.vnet',{opacity:0,y:10,stagger:.08,duration:.3}); }
+document.getElementById('exClass').onclick=()=>load('cls');
+document.getElementById('exHub').onclick=()=>load('hub');
+document.getElementById('exBad').onclick=()=>load('bad');
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected', x===b?'true':'false'));
+  ['checks','connect','cli'].forEach(t=>document.getElementById('tab-'+t).hidden = t!==b.dataset.tab);
+});
+
+render();
+window.__t = {parseCidr, overlaps, contains, azureUsable, analyze, setState:s=>{state=s;render();}};
+</script>
+</body>
+</html>
