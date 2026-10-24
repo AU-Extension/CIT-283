@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network troubleshooting challenge</title>
+<meta name="description" content="CIT-283 Week 6 interactive: solve ten help desk tickets with show commands and a structured troubleshooting method.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  .grid>*{min-width:0}
+  [hidden]{display:none!important}
+  @media(min-width:900px){.grid.ts{grid-template-columns:1fr 1.1fr}}
+  .progress{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+  .progress span{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:14px;background:#EEF1F5;color:var(--muted)}
+  .progress span.cur{background:var(--ink);color:#fff}
+  .progress span.good{background:var(--ok-soft);color:var(--ok);border:1px solid #BBE5C8}
+  .progress span.half{background:var(--warn-soft);color:var(--warn);border:1px solid #F6D7A7}
+  .progress span.miss{background:var(--bad-soft);color:var(--bad);border:1px solid #F5C2C2}
+  .ticket-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline}
+  .ticket-id{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  .complaint{background:var(--warn-soft);border:1px solid #F6D7A7;border-radius:10px;padding:12px 14px;margin:10px 0;font-size:15px}
+  .complaint .who{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7C2D12;margin-bottom:4px}
+  .path{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0 4px;font-size:13px}
+  .path .dev{border:1.5px solid var(--ink-2);border-radius:8px;padding:3px 8px;font-weight:600;background:#fff}
+  .path .dev.pc{border-color:var(--net-blue);color:#1E3A8A;background:#EEF4FF}
+  .path .arrow{color:var(--muted)}
+  .facts{font-size:14px;color:var(--ink-2);margin:6px 0 0;padding-left:18px}
+  .facts li{margin-bottom:3px}
+  .cmds{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .cmds button{font:inherit;text-align:left;font-family:var(--mono);font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:7px 10px;cursor:pointer;overflow-wrap:anywhere}
+  .cmds button:hover{border-color:#94A3B8}
+  .cmds button.used{background:#F1F5F9;color:var(--muted)}
+  .cmds button .dev{font-family:var(--sans);font-weight:700;color:var(--au-red-dark);margin-right:6px}
+  .meter{font-size:14px;margin-top:10px;color:var(--ink-2)}
+  .meter b.over{color:var(--bad)}
+  .term{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:12.5px;line-height:1.5;border-radius:10px;padding:12px 14px;min-height:220px;max-height:420px;overflow:auto;white-space:pre}
+  .term .pr{color:#93C5FD}
+  .opts{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .opts label{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:14.5px;background:#fff}
+  .opts label:hover{border-color:#94A3B8}
+  .opts input{margin-top:3px;accent-color:var(--au-red);flex:none}
+  .opts label.right{background:var(--ok-soft);border-color:#86D19D}
+  .opts label.wrong{background:var(--bad-soft);border-color:#F2A7A7}
+  .fix{margin-top:8px}
+  .final{text-align:center;padding:28px 20px}
+  .final .big{font-size:48px;font-weight:700;color:var(--au-red-dark)}
+  .method{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:12.5px}
+  .method span{background:#EEF1F5;border-radius:999px;padding:3px 10px;color:var(--ink-2)}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 6 · Interactive B</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 6 · Challenge</span>
+    <h1>Network troubleshooting challenge</h1>
+    <p class="lede">You are on the Sunrise Logistics help desk. Ten tickets are waiting. For each one, run show commands to gather evidence, then choose the root cause and the fix. Good technicians find the problem with as few commands as possible.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Read the user complaint and the facts you already know.</li>
+      <li>Click commands to run them. The output appears in the terminal. Each ticket has a par: the number of commands an experienced technician needs.</li>
+      <li>Choose the root cause and fix, then press Submit. A correct first answer earns up to 10 points, minus 1 for each command beyond par (never below 5). A correct second answer earns up to 5 points.</li>
+      <li>Read the explanation after each ticket. It shows which output gave the problem away and the commands that fix it.</li>
+    </ol>
+    <div class="method" aria-label="Structured troubleshooting method"><span>1. Define the problem</span><span>2. Gather evidence</span><span>3. Work from the bottom layer up</span><span>4. Form a hypothesis</span><span>5. Fix and verify</span></div>
+  </details>
+
+  <div class="progress" id="progress" aria-label="Ticket progress"></div>
+
+  <div id="game" class="grid ts">
+    <section class="card">
+      <div class="ticket-head"><h2 id="tTitle">Ticket</h2><span class="ticket-id" id="tId"></span></div>
+      <div class="complaint"><div class="who" id="tWho"></div><div id="tText"></div></div>
+      <div class="path" id="tPath"></div>
+      <ul class="facts" id="tFacts"></ul>
+      <h3 style="margin-top:16px">Run a command</h3>
+      <div class="cmds" id="cmds"></div>
+      <div class="meter" id="meter"></div>
+    </section>
+    <section class="card">
+      <h2>Terminal</h2>
+      <div class="term" id="term" aria-live="polite">Click a command to see its output here.</div>
+      <h3 style="margin-top:16px">Root cause and fix</h3>
+      <div class="opts" id="opts" role="radiogroup" aria-label="Root cause and fix"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn primary" id="submit">Submit answer</button>
+        <button class="btn" id="next" hidden>Next ticket</button>
+      </div>
+      <div id="fb"></div>
+      <div class="score" style="margin-top:14px">Score <span class="big" id="score">0</span><span style="color:var(--muted)">/ 100</span></div>
+    </section>
+  </div>
+  <section class="card final" id="final" hidden></section>
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+<script>
+const hasGSAP = typeof window.gsap !== 'undefined';
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const PING_OK = ip => `Pinging ${ip} with 32 bytes of data:\n\nReply from ${ip}: bytes=32 time<1ms TTL=254\nReply from ${ip}: bytes=32 time<1ms TTL=254\nReply from ${ip}: bytes=32 time=1ms TTL=254\nReply from ${ip}: bytes=32 time<1ms TTL=254\n\nPing statistics for ${ip}:\n    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),\nApproximate round trip times in milli-seconds:\n    Minimum = 0ms, Maximum = 1ms, Average = 0ms`;
+const PING_FAIL = ip => `Pinging ${ip} with 32 bytes of data:\n\nRequest timed out.\nRequest timed out.\nRequest timed out.\nRequest timed out.\n\nPing statistics for ${ip}:\n    Packets: Sent = 4, Received = 0, Lost = 4 (100% loss),`;
+const RPING_OK = ip => `Type escape sequence to abort.\nSending 5, 100-byte ICMP Echos to ${ip}, timeout is 2 seconds:\n!!!!!\nSuccess rate is 100 percent (5/5), round-trip min/avg/max = 0/0/1 ms`;
+const RPING_FAIL = ip => `Type escape sequence to abort.\nSending 5, 100-byte ICMP Echos to ${ip}, timeout is 2 seconds:\n.....\nSuccess rate is 0 percent (0/5)`;
+const IPC = (ip, mask, gw) => `FastEthernet0 Connection:(default port)\n\n   Connection-specific DNS Suffix..: \n   Link-local IPv6 Address.........: FE80::201:42FF:FE3A:8C11\n   IPv6 Address....................: ::\n   IPv4 Address....................: ${ip}\n   Subnet Mask.....................: ${mask}\n   Default Gateway.................: ::\n                                     ${gw}`;
+const SIB_HDR = 'Interface              IP-Address      OK? Method Status                Protocol \n';
+
+const T = [
+  {
+    title: 'One PC cannot leave its LAN', who: 'Fort Lauderdale · front desk',
+    text: '"My computer can print to the printer next to me, but I cannot open anything at headquarters. Everyone else here is fine."',
+    path: ['PC-FTL3', 'SW-FTL', 'FTL', 'HQ'], facts: ['PC-FTL3 uses a static address.', 'Other Fort Lauderdale PCs reach HQ normally.'], par: 2,
+    cmds: [
+      { dev: 'PC-FTL3', cmd: 'ipconfig', out: IPC('192.168.20.33', '255.255.255.0', '192.168.20.254') },
+      { dev: 'PC-FTL3', cmd: 'ping 192.168.20.1', out: PING_OK('192.168.20.1').replace(/TTL=254/g, 'TTL=255') },
+      { dev: 'PC-FTL3', cmd: 'ping 192.168.10.10', out: PING_FAIL('192.168.10.10') },
+      { dev: 'FTL', cmd: 'show ip interface brief', out: SIB_HDR + 'GigabitEthernet0/0/0   192.168.20.1    YES manual up                    up \nGigabitEthernet0/0/1   10.0.0.2        YES manual up                    up \nGigabitEthernet0/0/2   10.0.0.9        YES manual up                    up \nVlan1                  unassigned      YES unset  administratively down down' },
+      { dev: 'FTL', cmd: 'show ip route ospf', out: 'Gateway of last resort is 10.0.0.1 to network 0.0.0.0\n\nO*E2  0.0.0.0/0 [110/1] via 10.0.0.1, 00:21:07, GigabitEthernet0/0/1\n      10.0.0.0/8 is variably subnetted, 5 subnets, 2 masks\nO        10.0.0.4/30 [110/2] via 10.0.0.1, 00:21:07, GigabitEthernet0/0/1\n                     [110/2] via 10.0.0.10, 00:21:07, GigabitEthernet0/0/2\nO     192.168.10.0/24 [110/2] via 10.0.0.1, 00:21:07, GigabitEthernet0/0/1\nO     192.168.30.0/24 [110/2] via 10.0.0.10, 00:21:07, GigabitEthernet0/0/2' },
+    ],
+    options: ['The FTL router LAN interface G0/0/0 is down. Fix: no shutdown on G0/0/0.', 'PC-FTL3 has the wrong default gateway (192.168.20.254). Fix: set the gateway to 192.168.20.1.', 'FTL is missing its OSPF route to the HQ LAN. Fix: add a network statement for 192.168.10.0.', 'PC-FTL3 has the wrong subnet mask. Fix: change the mask to 255.255.0.0.'],
+    answer: 1,
+    explain: 'ipconfig shows Default Gateway 192.168.20.254, but the router\'s LAN address is 192.168.20.1. Local traffic (the printer) works because it never needs the gateway. The router and its routes are fine, as the other PCs prove.',
+    fix: 'PC-FTL3 > Desktop > IP Configuration\n  Default Gateway: 192.168.20.1\n\nVerify: ping 192.168.10.10'
+  },
+  {
+    title: 'A whole branch is cut off', who: 'Homestead · branch manager',
+    text: '"Since the cabling work this morning, nobody in Homestead can reach headquarters or the internet."',
+    path: ['PC-HMS1', 'SW-HMS', 'HMS', 'HQ'], facts: ['This happened in Week 5: routing is static, and there is no backup link yet.', 'The cabling contractor replaced the HQ to Homestead patch cable.'], par: 1,
+    cmds: [
+      { dev: 'HMS', cmd: 'show ip interface brief', out: SIB_HDR + 'GigabitEthernet0/0/0   192.168.30.1    YES manual up                    up \nGigabitEthernet0/0/1   10.0.0.6        YES manual administratively down down \nGigabitEthernet0/0/2   unassigned      YES unset  administratively down down \nVlan1                  unassigned      YES unset  administratively down down' },
+      { dev: 'HMS', cmd: 'show ip route', out: 'Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP\n       ...\n\nGateway of last resort is not set\n\n      192.168.30.0/24 is variably subnetted, 2 subnets, 2 masks\nC        192.168.30.0/24 is directly connected, GigabitEthernet0/0/0\nL        192.168.30.1/32 is directly connected, GigabitEthernet0/0/0' },
+      { dev: 'HQ', cmd: 'ping 10.0.0.6', out: RPING_FAIL('10.0.0.6') },
+      { dev: 'PC-HMS1', cmd: 'ping 192.168.30.1', out: PING_OK('192.168.30.1').replace(/TTL=254/g, 'TTL=255') },
+    ],
+    options: ['The static default route on HMS was deleted. Fix: ip route 0.0.0.0 0.0.0.0 10.0.0.5.', 'HMS G0/0/1 is administratively down. Fix: interface g0/0/1, no shutdown.', 'The Homestead switch port to the router is in the wrong VLAN. Fix: switchport access vlan 1.', 'HQ has the wrong IP address on G0/0/2. Fix: ip address 10.0.0.6 255.255.255.252.'],
+    answer: 1,
+    explain: '"administratively down" means someone typed shutdown on the interface (probably during the cable swap). When the WAN interface goes down, the static default route through 10.0.0.5 is removed too, which is why the routing table has no gateway of last resort. Fixing the interface brings the route back.',
+    fix: 'HMS(config)# interface g0/0/1\nHMS(config-if)# no shutdown\n\nVerify: show ip interface brief, show ip route, ping 192.168.10.10'
+  },
+  {
+    title: 'Branch PCs get 169.254 addresses', who: 'Fort Lauderdale · office manager',
+    text: '"Every PC in our office says no network access. The PCs in Homestead are fine."',
+    path: ['PC-FTL1', 'SW-FTL', 'FTL', 'HQ', 'DHCP 192.168.10.5'], facts: ['All branch PCs get addresses from the DHCP server at HQ (192.168.10.5).', 'Last night FTL\'s LAN interface was reconfigured from scratch.'], par: 2,
+    cmds: [
+      { dev: 'PC-FTL1', cmd: 'ipconfig', out: IPC('169.254.18.7', '255.255.0.0', '0.0.0.0') },
+      { dev: 'FTL', cmd: 'show running-config interface g0/0/0', out: 'Building configuration...\n\nCurrent configuration : 84 bytes\n!\ninterface GigabitEthernet0/0/0\n ip address 192.168.20.1 255.255.255.0\n duplex auto\n speed auto\nend' },
+      { dev: 'HMS', cmd: 'show running-config interface g0/0/0', out: 'Building configuration...\n\nCurrent configuration : 121 bytes\n!\ninterface GigabitEthernet0/0/0\n ip address 192.168.30.1 255.255.255.0\n ip helper-address 192.168.10.5\n duplex auto\n speed auto\nend' },
+      { dev: 'FTL', cmd: 'ping 192.168.10.5', out: RPING_OK('192.168.10.5') },
+      { dev: 'DHCP server', cmd: 'Services > DHCP (pool list)', out: 'Pool Name   Default Gateway  DNS Server     Start IP Address  Subnet Mask      Max User\nHQ          192.168.10.1     192.168.10.6   192.168.10.11     255.255.255.0    200\nFTL         192.168.20.1     192.168.10.6   192.168.20.11     255.255.255.0    200\nHMS         192.168.30.1     192.168.10.6   192.168.30.11     255.255.255.0    200\n\nService: On' },
+    ],
+    options: ['The DHCP server has no pool for 192.168.20.0. Fix: add an FTL pool on the server.', 'FTL cannot reach the DHCP server. Fix: add an OSPF network statement for 192.168.10.0.', 'FTL G0/0/0 is missing ip helper-address. Fix: ip helper-address 192.168.10.5 on G0/0/0.', 'The PCs are set to static addressing. Fix: switch each PC to DHCP.'],
+    answer: 2,
+    explain: 'A 169.254.x.x address means the PC sent a DHCP Discover and nobody answered. DHCP Discover is a broadcast, and routers do not forward broadcasts, so a branch router must relay it with ip helper-address. HMS has the command, FTL lost it when the interface was rebuilt. The server, its pools, and the routing to it are all fine.',
+    fix: 'FTL(config)# interface g0/0/0\nFTL(config-if)# ip helper-address 192.168.10.5\n\nVerify: on a PC, ipconfig /renew, then ipconfig'
+  },
+  {
+    title: 'OSPF neighbor never comes up', who: 'Network team · change ticket',
+    text: '"We moved Homestead from static routes to OSPF. Fort Lauderdale formed a neighbor with HQ right away, but Homestead never did."',
+    path: ['HQ G0/0/2', '10.0.0.4/30', 'HMS G0/0/1'], facts: ['Ping between 10.0.0.5 and 10.0.0.6 works.', 'All routers should be in area 0.'], par: 2,
+    cmds: [
+      { dev: 'HQ', cmd: 'show ip ospf neighbor', out: '\nNeighbor ID     Pri   State           Dead Time   Address         Interface\n2.2.2.2           1   FULL/DR         00:00:33    10.0.0.2        GigabitEthernet0/0/1' },
+      { dev: 'HMS', cmd: 'show ip ospf interface g0/0/1', out: 'GigabitEthernet0/0/1 is up, line protocol is up\n  Internet address is 10.0.0.6/30, Area 1\n  Process ID 1, Router ID 3.3.3.3, Network Type BROADCAST, Cost: 1\n  Transmit Delay is 1 sec, State DR, Priority 1\n  Designated Router (ID) 3.3.3.3, Interface address 10.0.0.6\n  No backup designated router on this network\n  Timer intervals configured, Hello 10, Dead 40, Wait 40, Retransmit 5\n    Hello due in 00:00:04\n  Index 2/2, flood queue length 0\n  Neighbor Count is 0, Adjacent neighbor count is 0' },
+      { dev: 'HQ', cmd: 'show ip ospf interface g0/0/2', out: 'GigabitEthernet0/0/2 is up, line protocol is up\n  Internet address is 10.0.0.5/30, Area 0\n  Process ID 1, Router ID 1.1.1.1, Network Type BROADCAST, Cost: 1\n  Transmit Delay is 1 sec, State DR, Priority 1\n  Designated Router (ID) 1.1.1.1, Interface address 10.0.0.5\n  No backup designated router on this network\n  Timer intervals configured, Hello 10, Dead 40, Wait 40, Retransmit 5\n    Hello due in 00:00:07\n  Index 3/3, flood queue length 0\n  Neighbor Count is 0, Adjacent neighbor count is 0' },
+      { dev: 'HMS', cmd: 'show running-config | section router ospf', out: 'router ospf 1\n router-id 3.3.3.3\n network 192.168.30.0 0.0.0.255 area 0\n network 10.0.0.4 0.0.0.3 area 1\n passive-interface GigabitEthernet0/0/0' },
+      { dev: 'HMS', cmd: 'show ip interface brief', out: SIB_HDR + 'GigabitEthernet0/0/0   192.168.30.1    YES manual up                    up \nGigabitEthernet0/0/1   10.0.0.6        YES manual up                    up \nGigabitEthernet0/0/2   unassigned      YES unset  administratively down down \nVlan1                  unassigned      YES unset  administratively down down' },
+    ],
+    options: ['G0/0/1 on HMS is passive, so it sends no Hellos. Fix: no passive-interface g0/0/1.', 'The Hello timers do not match. Fix: ip ospf hello-interval 10 on HMS.', 'HMS put the link in area 1 while HQ uses area 0. Fix: remove the area 1 network statement and add network 10.0.0.4 0.0.0.3 area 0.', 'HMS and HQ have the same router ID. Fix: router-id 3.3.3.3 on HMS.'],
+    answer: 2,
+    explain: 'show ip ospf interface on HMS says "Area 1", while HQ says "Area 0". Hellos carry the area ID, and a mismatch makes each router discard the other\'s Hellos, so the neighbor count stays 0. Timers (10/40) match, only G0/0/0 is passive, and the router IDs are different.',
+    fix: 'HMS(config)# router ospf 1\nHMS(config-router)# no network 10.0.0.4 0.0.0.3 area 1\nHMS(config-router)# network 10.0.0.4 0.0.0.3 area 0\n\nVerify: show ip ospf neighbor (FULL)'
+  },
+  {
+    title: 'One VLAN is stuck on one switch', who: 'HQ · accounting department',
+    text: '"Accounting people on the second floor cannot reach the server or the internet. Accounting on the first floor works."',
+    path: ['PC-ACC2 (VLAN 20)', 'SW2', 'trunk G0/1', 'SW1', 'R-HQ (router-on-a-stick)'], facts: ['VLAN 10 Sales, VLAN 20 Accounting, VLAN 30 Guest.', 'Sales and Guest users on SW2 work normally.', 'SW1 G0/1 goes to SW2, SW1 G0/2 goes to the router.'], par: 2,
+    cmds: [
+      { dev: 'SW1', cmd: 'show interfaces trunk', out: 'Port        Mode         Encapsulation  Status        Native vlan\nGig0/1      on           802.1q         trunking      1\nGig0/2      on           802.1q         trunking      1\n\nPort        Vlans allowed on trunk\nGig0/1      10,30\nGig0/2      1-1005\n\nPort        Vlans allowed and active in management domain\nGig0/1      10,30\nGig0/2      1,10,20,30,99\n\nPort        Vlans in spanning tree forwarding state and not pruned\nGig0/1      10,30\nGig0/2      1,10,20,30,99' },
+      { dev: 'SW2', cmd: 'show vlan brief', out: 'VLAN Name                             Status    Ports\n---- -------------------------------- --------- -------------------------------\n1    default                          active    \n10   SALES                            active    Fa0/1, Fa0/2, Fa0/3, Fa0/4\n20   ACCOUNTING                       active    Fa0/5, Fa0/6, Fa0/7, Fa0/8\n30   GUEST                            active    Fa0/9, Fa0/10\n99   PARKING                          active    Fa0/11, Fa0/12, Fa0/13, Fa0/14\n                                                Fa0/15, Fa0/16, Fa0/17, Fa0/18\n                                                Fa0/19, Fa0/20, Fa0/21, Fa0/22\n                                                Fa0/23, Fa0/24, Gig0/2\n1002 fddi-default                     active    \n1003 token-ring-default               active    \n1004 fddinet-default                  active    \n1005 trnet-default                    active    ' },
+      { dev: 'R-HQ', cmd: 'show ip interface brief', out: SIB_HDR + 'GigabitEthernet0/0/0   unassigned      YES unset  up                    up \nGigabitEthernet0/0/0.10 192.168.10.1    YES manual up                    up \nGigabitEthernet0/0/0.20 192.168.20.1    YES manual up                    up \nGigabitEthernet0/0/0.30 192.168.30.1    YES manual up                    up \nGigabitEthernet0/0/1   unassigned      YES unset  administratively down down' },
+      { dev: 'PC-ACC2', cmd: 'ping 192.168.20.1', out: PING_FAIL('192.168.20.1') },
+    ],
+    options: ['The router subinterface for VLAN 20 is down. Fix: no shutdown on G0/0/0.20.', 'VLAN 20 is not allowed on the SW1 to SW2 trunk. Fix: switchport trunk allowed vlan add 20 on SW1 G0/1 (and SW2 G0/1 if it is also restricted).', 'The accounting ports on SW2 are in VLAN 1. Fix: switchport access vlan 20.', 'The native VLAN does not match. Fix: switchport trunk native vlan 20.'],
+    answer: 1,
+    explain: '"Vlans allowed on trunk" for Gig0/1 lists only 10 and 30. VLAN 20 frames from SW2 are dropped at the trunk, so second floor Accounting is isolated, while first floor Accounting reaches the router through Gig0/2, which allows everything. SW2 ports are correctly in VLAN 20 and the router subinterface is up.',
+    fix: 'SW1(config)# interface g0/1\nSW1(config-if)# switchport trunk allowed vlan add 20\n\nVerify: show interfaces trunk, then ping 192.168.20.1 from PC-ACC2'
+  },
+  {
+    title: 'New PC cannot ping anyone', who: 'HQ · sales department',
+    text: '"IT set up a new computer for our new salesperson at desk 7. It cannot reach anything, not even the person next to her."',
+    path: ['PC-SALES7', 'Fa0/7', 'SW1'], facts: ['PC-SALES7: 192.168.10.27/24, gateway 192.168.10.1 (correct for Sales).', 'The switch port light is green.'], par: 2,
+    cmds: [
+      { dev: 'SW1', cmd: 'show vlan brief', out: 'VLAN Name                             Status    Ports\n---- -------------------------------- --------- -------------------------------\n1    default                          active    Fa0/7\n10   SALES                            active    Fa0/1, Fa0/2, Fa0/3, Fa0/4\n                                                Fa0/5, Fa0/6\n20   ACCOUNTING                       active    Fa0/8, Fa0/9, Fa0/10, Fa0/11\n                                                Fa0/12\n99   PARKING                          active    Fa0/13, Fa0/14, Fa0/15, Fa0/16\n                                                Fa0/17, Fa0/18, Fa0/19, Fa0/20\n                                                Fa0/21, Fa0/22, Fa0/23, Fa0/24\n1002 fddi-default                     active    \n1003 token-ring-default               active    \n1004 fddinet-default                  active    \n1005 trnet-default                    active    ' },
+      { dev: 'SW1', cmd: 'show interfaces fa0/7 switchport', out: 'Name: Fa0/7\nSwitchport: Enabled\nAdministrative Mode: static access\nOperational Mode: static access\nAdministrative Trunking Encapsulation: dot1q\nOperational Trunking Encapsulation: native\nNegotiation of Trunking: Off\nAccess Mode VLAN: 1 (default)\nTrunking Native Mode VLAN: 1 (default)\nVoice VLAN: none' },
+      { dev: 'PC-SALES7', cmd: 'ipconfig', out: IPC('192.168.10.27', '255.255.255.0', '192.168.10.1') },
+      { dev: 'PC-SALES7', cmd: 'ping 192.168.10.26', out: PING_FAIL('192.168.10.26') },
+    ],
+    options: ['Fa0/7 is still in the default VLAN 1. Fix: switchport access vlan 10 on Fa0/7.', 'Fa0/7 is shut down. Fix: no shutdown on Fa0/7.', 'The PC has a duplicate IP address. Fix: change it to 192.168.10.127.', 'VLAN 10 does not exist on SW1. Fix: vlan 10, name SALES.'],
+    answer: 0,
+    explain: 'show vlan brief lists Fa0/7 under VLAN 1 and the switchport output confirms "Access Mode VLAN: 1 (default)". The PC is configured for Sales, but its port puts it in a different broadcast domain, so it cannot even ARP for its neighbors. The green light rules out a shut port, and VLAN 10 exists.',
+    fix: 'SW1(config)# interface fa0/7\nSW1(config-if)# switchport mode access\nSW1(config-if)# switchport access vlan 10\n\nVerify: show vlan brief'
+  },
+  {
+    title: 'Branches lost the internet after OSPF', who: 'Homestead and Fort Lauderdale',
+    text: '"Since the switch to OSPF last night, we can open the HQ intranet but no internet sites."',
+    path: ['PC-HMS1', 'HMS', 'HQ', 'ISP', 'Internet'], facts: ['The old static default routes were removed from the branches during the change.', 'Users at HQ browse the internet normally.'], par: 2,
+    cmds: [
+      { dev: 'HMS', cmd: 'show ip route', out: 'Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP\n       ...\n\nGateway of last resort is not set\n\n      10.0.0.0/8 is variably subnetted, 3 subnets, 2 masks\nO        10.0.0.0/30 [110/2] via 10.0.0.5, 00:14:22, GigabitEthernet0/0/1\nC        10.0.0.4/30 is directly connected, GigabitEthernet0/0/1\nL        10.0.0.6/32 is directly connected, GigabitEthernet0/0/1\nO     192.168.10.0/24 [110/2] via 10.0.0.5, 00:14:22, GigabitEthernet0/0/1\nO     192.168.20.0/24 [110/3] via 10.0.0.5, 00:14:22, GigabitEthernet0/0/1\n      192.168.30.0/24 is variably subnetted, 2 subnets, 2 masks\nC        192.168.30.0/24 is directly connected, GigabitEthernet0/0/0\nL        192.168.30.1/32 is directly connected, GigabitEthernet0/0/0' },
+      { dev: 'HQ', cmd: 'show ip route static', out: 'Gateway of last resort is 203.0.113.1 to network 0.0.0.0\n\nS*    0.0.0.0/0 [1/0] via 203.0.113.1' },
+      { dev: 'HQ', cmd: 'show running-config | section router ospf', out: 'router ospf 1\n router-id 1.1.1.1\n network 192.168.10.0 0.0.0.255 area 0\n network 10.0.0.0 0.0.0.3 area 0\n network 10.0.0.4 0.0.0.3 area 0\n passive-interface GigabitEthernet0/0/0' },
+      { dev: 'HMS', cmd: 'ping 203.0.113.10', out: RPING_FAIL('203.0.113.10') },
+      { dev: 'HMS', cmd: 'show ip ospf neighbor', out: '\nNeighbor ID     Pri   State           Dead Time   Address         Interface\n1.1.1.1           1   FULL/DR         00:00:36    10.0.0.5        GigabitEthernet0/0/1' },
+    ],
+    options: ['The OSPF neighbor between HMS and HQ is down. Fix: match the area IDs.', 'HQ does not advertise its default route into OSPF. Fix: default-information originate under router ospf 1 on HQ.', 'The ISP router has no route back to the branches. Fix: add a static route on the ISP.', 'HMS has a passive WAN interface. Fix: no passive-interface g0/0/1.'],
+    answer: 1,
+    explain: 'HMS learns every office network through OSPF (the neighbor is FULL), but its table says "Gateway of last resort is not set". HQ has a static default route, and OSPF does not share static routes unless told to. default-information originate makes HQ advertise 0.0.0.0/0, which appears on the branches as O*E2.',
+    fix: 'HQ(config)# router ospf 1\nHQ(config-router)# default-information originate\n\nVerify on HMS: show ip route (look for O*E2 0.0.0.0/0), ping 203.0.113.10'
+  },
+  {
+    title: 'Printer and laptops keep dropping', who: 'Doral café (a Week 4 style client)',
+    text: '"Some days the receipt printer stops working, and the laptop at the counter shows an address conflict warning."',
+    path: ['Laptops (DHCP)', 'Café router (DHCP server)', 'Printer 192.168.1.20 (static)'], facts: ['The printer was given the static address 192.168.1.20 when it was installed.', 'The router hands out addresses to everything else.'], par: 2,
+    cmds: [
+      { dev: 'Café router', cmd: 'show running-config | section dhcp', out: 'ip dhcp pool CAFE\n network 192.168.1.0 255.255.255.0\n default-router 192.168.1.1\n dns-server 8.8.8.8' },
+      { dev: 'Café router', cmd: 'show ip dhcp binding', out: 'IP address       Client-ID/              Lease expiration        Type\n                 Hardware address\n192.168.1.2      0001.6345.A1B2           --                     Automatic\n192.168.1.3      0060.4721.9C0D           --                     Automatic\n192.168.1.20     00D0.BC4E.7731           --                     Automatic' },
+      { dev: 'Café router', cmd: 'show ip dhcp conflict', out: 'IP address        Detection method   Detection time\n192.168.1.20      Gratuitous ARP     Oct 24 2026 09:41 AM' },
+      { dev: 'Café router', cmd: 'show ip interface brief', out: SIB_HDR + 'GigabitEthernet0/0/0   192.168.1.1     YES manual up                    up \nGigabitEthernet0/0/1   203.0.113.18    YES manual up                    up \nVlan1                  unassigned      YES unset  administratively down down' },
+    ],
+    options: ['The DHCP pool has the wrong default router. Fix: default-router 192.168.1.20.', 'The DHCP pool can hand out the printer\'s static address. Fix: ip dhcp excluded-address 192.168.1.1 192.168.1.30, then clear the conflicting binding.', 'The DNS server is wrong. Fix: dns-server 192.168.1.1.', 'The LAN interface has the wrong mask. Fix: ip address 192.168.1.1 255.255.255.128.'],
+    answer: 1,
+    explain: 'The pool covers the whole 192.168.1.0/24 network with no excluded addresses, so the router leased 192.168.1.20 to a laptop even though the printer uses it statically. show ip dhcp conflict confirms the duplicate. Reserve a block for static devices (router, printer, server) with excluded-address.',
+    fix: 'Router(config)# ip dhcp excluded-address 192.168.1.1 192.168.1.30\nRouter# clear ip dhcp binding 192.168.1.20\nRouter# clear ip dhcp conflict *\n\nVerify: show ip dhcp binding'
+  },
+  {
+    title: 'Traffic takes the long way', who: 'HQ · operations',
+    text: '"File transfers to Homestead have been slow all week. A traceroute shows the traffic going through Fort Lauderdale."',
+    path: ['HQ', 'direct link G0/0/2', 'HMS', 'backup via FTL'], facts: ['All links are up and all OSPF neighbors are FULL.', 'Last week someone tested OSPF cost settings on HQ.'], par: 2,
+    cmds: [
+      { dev: 'PC-HQ', cmd: 'tracert 192.168.30.10', out: 'Tracing route to 192.168.30.10 over a maximum of 30 hops: \n\n  1   0 ms      0 ms      0 ms      192.168.10.1\n  2   0 ms      0 ms      1 ms      10.0.0.2\n  3   1 ms      0 ms      0 ms      10.0.0.10\n  4   1 ms      1 ms      0 ms      192.168.30.10\n\nTrace complete.' },
+      { dev: 'HQ', cmd: 'show ip ospf interface brief', out: 'Interface    PID   Area            IP Address/Mask    Cost  State Nbrs F/C\nGi0/0/2      1     0               10.0.0.5/30        100   DR    1/1\nGi0/0/1      1     0               10.0.0.1/30        1     BDR   1/1\nGi0/0/0      1     0               192.168.10.1/24    1     DR    0/0' },
+      { dev: 'HQ', cmd: 'show ip route ospf', out: 'Gateway of last resort is 203.0.113.1 to network 0.0.0.0\n\n      10.0.0.0/8 is variably subnetted, 5 subnets, 2 masks\nO        10.0.0.8/30 [110/2] via 10.0.0.2, 00:03:41, GigabitEthernet0/0/1\nO     192.168.20.0/24 [110/2] via 10.0.0.2, 00:03:41, GigabitEthernet0/0/1\nO     192.168.30.0/24 [110/3] via 10.0.0.2, 00:03:41, GigabitEthernet0/0/1' },
+      { dev: 'HQ', cmd: 'show running-config interface g0/0/2', out: 'Building configuration...\n\nCurrent configuration : 112 bytes\n!\ninterface GigabitEthernet0/0/2\n ip address 10.0.0.5 255.255.255.252\n ip ospf cost 100\n duplex auto\n speed auto\nend' },
+      { dev: 'HQ', cmd: 'show ip ospf neighbor', out: '\nNeighbor ID     Pri   State           Dead Time   Address         Interface\n2.2.2.2           1   FULL/BDR        00:00:31    10.0.0.2        GigabitEthernet0/0/1\n3.3.3.3           1   FULL/BDR        00:00:38    10.0.0.6        GigabitEthernet0/0/2' },
+    ],
+    options: ['The HQ to Homestead link is down. Fix: no shutdown on G0/0/2.', 'A static route sends Homestead traffic through FTL. Fix: remove the static route.', 'G0/0/2 has a manual OSPF cost of 100 left over from testing. Fix: no ip ospf cost 100 on G0/0/2.', 'Homestead is in a different OSPF area. Fix: put HMS G0/0/1 in area 0.'],
+    answer: 2,
+    explain: 'show ip ospf interface brief shows cost 100 on Gi0/0/2 while the neighbor there is FULL. The path through FTL costs 1 + 1 + 1 = 3, far less than 100 + 1, so SPF prefers it. The routes are marked O (OSPF), not S (static), and the neighbor list proves the link is up.',
+    fix: 'HQ(config)# interface g0/0/2\nHQ(config-if)# no ip ospf cost 100\n\nVerify: show ip route ospf (192.168.30.0/24 [110/2] via 10.0.0.6)'
+  },
+  {
+    title: 'Website works by number but not by name', who: 'Fort Lauderdale · sales',
+    text: '"I can open the company website if IT gives me the number, but typing www.sunrise.local says the page cannot be found."',
+    path: ['PC-FTL2 (DHCP)', 'FTL', 'HQ', 'Web 192.168.10.6 · DNS 192.168.10.6'], facts: ['The HQ server 192.168.10.6 runs both the web site and DNS.', 'Last week the DHCP server pools were edited.'], par: 2,
+    cmds: [
+      { dev: 'PC-FTL2', cmd: 'ipconfig /all', out: 'FastEthernet0 Connection:(default port)\n\n   Connection-specific DNS Suffix..: \n   Physical Address................: 0060.2F84.4AB6\n   Link-local IPv6 Address.........: FE80::260:2FFF:FE84:4AB6\n   IPv6 Address....................: ::\n   IPv4 Address....................: 192.168.20.14\n   Subnet Mask.....................: 255.255.255.0\n   Default Gateway.................: ::\n                                     192.168.20.1\n   DHCP Servers....................: 192.168.10.5\n   DNS Servers.....................: ::\n                                     192.168.10.60' },
+      { dev: 'PC-FTL2', cmd: 'ping 192.168.10.6', out: PING_OK('192.168.10.6').replace(/TTL=254/g, 'TTL=126') },
+      { dev: 'PC-FTL2', cmd: 'ping www.sunrise.local', out: 'Ping request could not find host www.sunrise.local. Please check the name and try again.' },
+      { dev: 'DHCP server', cmd: 'Services > DHCP (pool list)', out: 'Pool Name   Default Gateway  DNS Server     Start IP Address  Subnet Mask      Max User\nHQ          192.168.10.1     192.168.10.6   192.168.10.11     255.255.255.0    200\nFTL         192.168.20.1     192.168.10.60  192.168.20.11     255.255.255.0    200\nHMS         192.168.30.1     192.168.10.6   192.168.30.11     255.255.255.0    200\n\nService: On' },
+      { dev: 'Web/DNS server', cmd: 'Services > DNS (records)', out: 'DNS Service: On\n\nNo.  Name                 Type      Detail\n0    www.sunrise.local    A Record  192.168.10.6' },
+    ],
+    options: ['The DNS server has no record for www.sunrise.local. Fix: add an A record.', 'The FTL DHCP pool gives out the wrong DNS server (192.168.10.60). Fix: set the pool DNS server to 192.168.10.6, then ipconfig /renew on the PCs.', 'FTL is missing a route to the HQ LAN. Fix: add the HQ LAN to OSPF.', 'The web service is turned off. Fix: enable HTTP on the server.'],
+    answer: 1,
+    explain: 'ipconfig /all shows DNS server 192.168.10.60, an address with no DNS service. The pool list confirms only the FTL pool has the typo. Pinging 192.168.10.6 works, so routing is fine, and the DNS record exists on the real server. Name resolution is the only thing broken.',
+    fix: 'DHCP server > Services > DHCP > pool FTL\n  DNS Server: 192.168.10.6  (Save)\n\nOn each PC: ipconfig /renew, then ping www.sunrise.local'
+  },
+];
+
+let idx = 0, used = new Set(), tries = 0, done = false;
+const results = T.map(() => ({ pts: 0, cmds: 0, status: '' }));
+function total() { return results.reduce((a, r) => a + r.pts, 0); }
+function renderProgress() {
+  $('#progress').innerHTML = T.map((t, i) => `<span class="${i === idx && !results[i].status ? 'cur' : results[i].status}" title="Ticket ${i + 1}">${i + 1}</span>`).join('');
+  $('#score').textContent = total();
+}
+function load(i) {
+  idx = i; used = new Set(); tries = 0; done = false;
+  const t = T[i];
+  $('#tTitle').textContent = t.title; $('#tId').textContent = `Ticket ${i + 1} of ${T.length} · par ${t.par}`;
+  $('#tWho').textContent = t.who; $('#tText').textContent = t.text;
+  $('#tPath').innerHTML = t.path.map((d, k) => `${k ? '<span class="arrow">\u2192</span>' : ''}<span class="dev ${/^PC|Laptop/.test(d) ? 'pc' : ''}">${esc(d)}</span>`).join('');
+  $('#tFacts').innerHTML = t.facts.map(f => `<li>${esc(f)}</li>`).join('');
+  const box = $('#cmds'); box.innerHTML = '';
+  t.cmds.forEach((c, k) => {
+    const b = document.createElement('button'); b.innerHTML = `<span class="dev">${esc(c.dev)}</span>${esc(c.cmd)}`;
+    b.addEventListener('click', () => run(k, b)); box.appendChild(b);
+  });
+  const ob = $('#opts'); ob.innerHTML = '';
+  const order = t.options.map((_, k) => k); for (let a = order.length - 1; a > 0; a--) { const r = Math.floor(Math.random() * (a + 1)); [order[a], order[r]] = [order[r], order[a]]; }
+  order.forEach(k => { ob.insertAdjacentHTML('beforeend', `<label><input type="radio" name="opt" value="${k}"><span>${esc(t.options[k])}</span></label>`); });
+  $('#term').textContent = 'Click a command to see its output here.';
+  $('#fb').innerHTML = ''; $('#submit').hidden = false; $('#submit').disabled = false; $('#next').hidden = true;
+  meter(); renderProgress();
+  if (hasGSAP) gsap.from('#game .card', { y: 10, opacity: 0, duration: .35, stagger: .08 });
+}
+function prompt(dev, cmd) {
+  if (/^PC|Laptop/.test(dev)) return `C:\\> ${cmd}`;
+  if (/server/i.test(dev)) return `[${dev}] ${cmd}`;
+  return `${dev}# ${cmd}`;
+}
+function run(k, btn) {
+  const c = T[idx].cmds[k];
+  if (!done) used.add(k);
+  btn.classList.add('used');
+  $('#term').innerHTML = `<span class="pr">${esc(prompt(c.dev, c.cmd))}</span>\n${esc(c.out)}`;
+  $('#term').scrollTop = 0;
+  meter();
+}
+function meter() {
+  const t = T[idx], n = used.size, over = Math.max(0, n - t.par);
+  $('#meter').innerHTML = `Commands used: <b class="${over ? 'over' : ''}">${n}</b> (par ${t.par})${over ? ` · ${over} over par` : ''}`;
+}
+$('#submit').addEventListener('click', () => {
+  if (done) return;
+  const pick = document.querySelector('input[name=opt]:checked');
+  if (!pick) { $('#fb').innerHTML = '<div class="feedback info">Choose a root cause first.</div>'; return; }
+  const t = T[idx], k = +pick.value, over = Math.max(0, used.size - t.par);
+  const lab = v => document.querySelector(`#opts input[value="${v}"]`).closest('label');
+  if (k === t.answer) {
+    const pts = tries === 0 ? Math.max(5, 10 - over) : Math.max(2, 5 - over);
+    results[idx] = { pts, cmds: used.size, status: tries === 0 ? 'good' : 'half' };
+    lab(k).classList.add('right'); finishTicket(true, pts);
+  } else {
+    lab(k).classList.add('wrong'); pick.disabled = true;
+    tries++;
+    if (tries >= 2) { results[idx] = { pts: 0, cmds: used.size, status: 'miss' }; lab(t.answer).classList.add('right'); finishTicket(false, 0); }
+    else $('#fb').innerHTML = '<div class="feedback bad">Not the root cause. Look at the evidence again (you can run more commands) and try once more for up to 5 points.</div>';
+  }
+});
+function finishTicket(ok, pts) {
+  done = true; const t = T[idx];
+  document.querySelectorAll('input[name=opt]').forEach(i => i.disabled = true);
+  $('#fb').innerHTML = `<div class="feedback ${ok ? 'ok' : 'bad'}"><b>${ok ? `Correct: +${pts} points.` : 'Out of tries: 0 points.'}</b> ${esc(t.explain)}<div class="fix"><div style="font-weight:600;margin:8px 0 4px">The fix</div><div class="cli" style="padding:8px 10px">${esc(t.fix)}</div></div></div>`;
+  $('#submit').hidden = true; $('#next').hidden = false; $('#next').textContent = idx < T.length - 1 ? 'Next ticket' : 'See results';
+  renderProgress();
+  if (hasGSAP) gsap.fromTo('#score', { scale: 1.35 }, { scale: 1, duration: .45 });
+}
+$('#next').addEventListener('click', () => { if (idx < T.length - 1) load(idx + 1); else final(); });
+function final() {
+  $('#game').hidden = true; renderProgress();
+  const s = total();
+  const msg = s >= 90 ? 'Excellent troubleshooting. You found causes quickly and with few commands.' : s >= 70 ? 'Solid work. Review the tickets where you went over par or needed a second try.' : 'Keep practicing. Replay the challenge and follow the method: start at the bottom layer and let each output point to the next command.';
+  const f = $('#final'); f.hidden = false;
+  f.innerHTML = `<h2>Shift complete</h2><div class="big">${s} / 100</div><p>${msg}</p>
+    <div class="scroll-x"><table class="data" style="max-width:560px;margin:12px auto;text-align:left"><tr><th>Ticket</th><th>Commands</th><th style="text-align:right">Points</th></tr>${T.map((t, i) => `<tr><td>${i + 1}. ${esc(t.title)}</td><td>${results[i].cmds} (par ${t.par})</td><td style="text-align:right">${results[i].pts}</td></tr>`).join('')}</table></div>
+    <button class="btn primary" id="again">Play again</button>`;
+  $('#again').addEventListener('click', () => location.reload());
+  if (hasGSAP) gsap.from(f, { y: 20, opacity: 0, duration: .5 });
+}
+load(0);
+</script>
+</body>
+</html>

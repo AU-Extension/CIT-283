@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Routing table explorer</title>
+<meta name="description" content="CIT-283 Week 5 interactive: read router routing tables and follow a packet hop by hop with longest prefix match.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  .grid>*{min-width:0}
+  [hidden]{display:none!important}
+  .scen{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+  .scen button{font:inherit;font-size:14px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;cursor:pointer;color:var(--ink-2)}
+  .scen button[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .scen-note{font-size:14px;color:var(--ink-2);margin:0 0 12px;min-height:22px}
+  .topo{width:100%;height:auto;display:block;background:#FBFCFD;border:1px solid var(--line);border-radius:10px}
+  .topo .link{stroke:#94A3B8;stroke-width:3}
+  .topo .link.down{stroke:var(--bad);stroke-dasharray:7 6}
+  .topo .link.active{stroke:var(--net-blue);stroke-width:5}
+  .topo .lbl{font-size:12px;fill:#475569}
+  .topo .ip{font-size:11px;fill:#64748B;font-family:var(--mono)}
+  .topo .router circle{fill:#fff;stroke:var(--ink);stroke-width:2.5}
+  .topo .router{cursor:pointer}
+  .topo .router:hover circle,.topo .router:focus circle{stroke:var(--au-red);outline:none}
+  .topo .router.sel circle{stroke:var(--au-red);stroke-width:4;fill:var(--au-red-soft)}
+  .topo .router.drop circle{fill:var(--bad-soft);stroke:var(--bad)}
+  .topo .rname{font-weight:700;font-size:15px;fill:var(--ink)}
+  .topo .host rect{fill:#EEF4FF;stroke:var(--net-blue);stroke-width:2}
+  .topo .hname{font-size:12px;font-weight:600;fill:#1E3A8A}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:14px 0 4px}
+  .controls label{display:flex;flex-direction:column;font-size:13px;color:var(--muted);gap:4px}
+  .steps{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+  .steps li{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+  .steps li.cur{border-color:var(--net-blue);box-shadow:0 0 0 3px #DBEAFE}
+  .steps li.fail{border-color:#F5C2C2;background:var(--bad-soft)}
+  .steps li.done{border-color:#BBE5C8;background:var(--ok-soft)}
+  .steps .hdr{font-weight:600;margin-bottom:4px}
+  .mt{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px;margin-top:6px}
+  .mt td,.mt th{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;white-space:nowrap}
+  .mt th{font-family:var(--sans);font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.05em}
+  .mt tr.win td{background:#DBEAFE;font-weight:600}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .tabs button{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer}
+  .tabs button[aria-selected=true]{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .cli{max-height:440px}
+  .q{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+  .opts{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .opts button{font:inherit;text-align:left;font-family:var(--mono);font-size:13px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px 10px;cursor:pointer;overflow-wrap:anywhere}
+  .opts button.right{background:var(--ok-soft);border-color:#86D19D}
+  .opts button.wrong{background:var(--bad-soft);border-color:#F2A7A7}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--ink-2);margin-top:8px}
+  .legend code{background:#EEF1F5;padding:1px 6px;border-radius:5px}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 5 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 5 · Explorer</span>
+    <h1>Routing table explorer</h1>
+    <p class="lede">Sunrise Logistics has a headquarters in Miami and branches in Fort Lauderdale and Homestead. Click any router to read its routing table, then send a packet and watch each router pick the longest matching route, one hop at a time.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Pick a scenario. Start with the complete network, then try the broken ones.</li>
+      <li>Click a router in the diagram (or use the tabs) to see its <code>show ip route</code> output.</li>
+      <li>Choose a source PC and a destination, then press <b>Trace packet</b>. Use <b>Next step</b> to move one router at a time.</li>
+      <li>At each router, read the table of matching routes. The longest prefix (the biggest /number) always wins.</li>
+      <li>Remember that a ping needs two trips: the request and the reply. Watch for the reply failing.</li>
+      <li>Finish with the six quick questions at the bottom.</li>
+    </ol>
+    <div class="legend">
+      <span><code>C</code> connected network</span><span><code>L</code> local (the router's own IP, /32)</span><span><code>S</code> static route</span><span><code>S*</code> static default route</span><span><code>[1/0]</code> [administrative distance / metric]</span>
+    </div>
+  </details>
+
+  <div class="scen" role="group" aria-label="Scenario">
+    <button data-s="complete" aria-pressed="true">Complete network</button>
+    <button data-s="noreturn" aria-pressed="false">Homestead forgot its routes</button>
+    <button data-s="linkdown" aria-pressed="false">HQ to Fort Lauderdale link down</button>
+    <button data-s="typo" aria-pressed="false">Typo on the HQ router</button>
+  </div>
+  <p class="scen-note" id="scenNote"></p>
+
+  <div class="grid two">
+    <section class="card">
+      <h2>Topology</h2>
+      <svg class="topo" id="topo" viewBox="0 0 800 480" role="img" aria-label="Sunrise Logistics network diagram"></svg>
+      <div class="controls">
+        <label>Source<select id="src"></select></label>
+        <label>Destination<select id="dst"></select></label>
+        <label id="customWrap" hidden>Custom IP<input type="text" id="custom" value="8.8.8.8" size="14" inputmode="decimal"></label>
+        <button class="btn primary" id="trace">Trace packet</button>
+        <button class="btn" id="next" disabled>Next step</button>
+        <button class="btn" id="play" disabled>Play all</button>
+      </div>
+      <div id="traceOut" aria-live="polite"></div>
+    </section>
+    <aside class="card">
+      <h2>Routing tables</h2>
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="cli" id="cli" tabindex="0" aria-label="show ip route output"></div>
+      <p style="font-size:13px;color:var(--muted);margin:8px 0 0">Floating static routes (higher distance) do not appear here until the main route disappears. Switch to the "link down" scenario and compare.</p>
+    </aside>
+  </div>
+
+  <section class="card" style="margin-top:16px">
+    <h2>Quick check: which route wins?</h2>
+    <p class="lede" style="font-size:15px">Use the complete network tables. Answers are checked right away.</p>
+    <div id="quiz"></div>
+    <div class="score" style="margin-top:14px"><span>Score</span><span class="big" id="qscore">0 / 6</span></div>
+  </section>
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+<script>
+// Shared network logic for CIT-283 week 5 interactives (inlined into the HTML files).
+const NET = (() => {
+  const ip2n = s => { const p = String(s).trim().split('.'); if (p.length !== 4) return null;
+    let n = 0; for (const x of p) { if (!/^\d{1,3}$/.test(x)) return null; const v = +x; if (v > 255) return null; n = n * 256 + v; } return n; };
+  const n2ip = n => [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.');
+  const lenMask = len => len === 0 ? 0 : (0xFFFFFFFF << (32 - len)) >>> 0;
+  const maskLen = s => { const n = ip2n(s); if (n === null) return -1; for (let l = 0; l <= 32; l++) if (lenMask(l) === n) return l; return -1; };
+  const netOf = (ipn, len) => (ipn & lenMask(len)) >>> 0;
+  const inNet = (ipn, netn, len) => netOf(ipn, len) === netn;
+  const longIf = s => s.replace(/^G(?=\d)/, 'GigabitEthernet').replace(/^S(?=\d)/, 'Serial');
+  const shortIf = s => s.replace(/^GigabitEthernet/i, 'G').replace(/^Serial/i, 'S');
+  // normalize user-typed interface names: g0/0/1, gi0/0/1, gig 0/0/1, GigabitEthernet0/0/1
+  const normIf = s => { const t = String(s).trim(); let m = t.match(/^(g|gi|gig|giga|gigabit|gigabitethernet)\s*(\d+\/\d+\/\d+)$/i); if (m) return 'G' + m[2]; m = t.match(/^(s|se|ser|serial)\s*(\d+\/\d+\/\d+)$/i); return m ? 'S' + m[2] : null; };
+
+  // Build a routing table for router r inside topology topo.
+  // topo = { routers: {NAME: {ifaces:[{name, ip, len, up}], statics:[{net, len, nh?, iface?, ad}]}}, hosts:[...] }
+  function buildTable(topo, rname) {
+    const r = topo.routers[rname];
+    const table = [];
+    for (const i of r.ifaces) {
+      if (!ifUp(topo, rname, i)) continue;
+      const ipn = ip2n(i.ip);
+      table.push({ code: 'C', net: netOf(ipn, i.len), len: i.len, iface: i.name });
+      table.push({ code: 'L', net: ipn, len: 32, iface: i.name });
+    }
+    const cand = (r.statics || []).map(s => ({ ...s, netn: ip2n(s.net) }));
+    const installed = [];
+    let changed = true, guard = 0;
+    while (changed && guard++ < 10) {
+      changed = false;
+      for (const s of cand) {
+        if (installed.includes(s)) continue;
+        let ok = false;
+        if (s.iface) { const i = r.ifaces.find(x => x.name === s.iface); ok = !!(i && ifUp(topo, rname, i)); }
+        else { const res = lpm(table.concat(installed.map(toRoute)).filter(x => x.len > 0), ip2n(s.nh), s); ok = !!res; }
+        if (ok) { installed.push(s); changed = true; }
+      }
+    }
+    // keep only lowest AD per prefix
+    const best = {};
+    for (const s of installed) { const k = s.netn + '/' + s.len; if (!best[k] || s.ad < best[k][0].ad) best[k] = [s]; else if (s.ad === best[k][0].ad) best[k].push(s); }
+    for (const k in best) for (const s of best[k]) table.push(toRoute(s));
+    // connected beats static for same prefix (AD 0)
+    return table.filter(rt => !(rt.code[0] === 'S' && table.some(c => c.code === 'C' && c.net === rt.net && c.len === rt.len)));
+  }
+  function toRoute(s) { return { code: s.len === 0 ? 'S*' : 'S', net: s.netn, len: s.len, nh: s.nh, iface: s.iface, ad: s.ad, src: s }; }
+  function ifUp(topo, rname, i) { return i.up !== false && !(topo.down || []).includes(rname + ':' + i.name); }
+  // longest prefix match; exclude = static that must not resolve through itself
+  function lpm(table, dstn, exclude) {
+    let best = null;
+    for (const rt of table) { if (exclude && rt.src === exclude) continue; if (inNet(dstn, rt.net, rt.len) && (!best || rt.len > best.len)) best = rt; }
+    return best;
+  }
+  function matches(table, dstn) { return table.filter(rt => inNet(dstn, rt.net, rt.len)).sort((a, b) => b.len - a.len); }
+
+  // who owns an IP (router interface or host) and is up
+  function owner(topo, ipn) {
+    for (const rn in topo.routers) for (const i of topo.routers[rn].ifaces) if (ip2n(i.ip) === ipn && ifUp(topo, rn, i)) return { type: 'router', name: rn, iface: i.name };
+    for (const h of topo.hosts) if (ip2n(h.ip) === ipn) return { type: 'host', name: h.name };
+    return null;
+  }
+  // device on the same subnet as interface (router rn, iface) with ip ipn
+  function onLink(topo, rn, iface, ipn) {
+    const i = topo.routers[rn].ifaces.find(x => x.name === iface);
+    const o = owner(topo, ipn);
+    if (!o) return null;
+    if (!inNet(ipn, netOf(ip2n(i.ip), i.len), i.len)) return null;
+    if (o.type === 'router') { const oi = topo.routers[o.name].ifaces.find(x => x.name === o.iface); if (netOf(ip2n(oi.ip), oi.len) !== netOf(ip2n(i.ip), i.len)) return null; }
+    else { const h = topo.hosts.find(x => x.name === o.name); if (h.router !== rn) return null; }
+    return o;
+  }
+  // neighbor router on the link of interface iface (for exit-interface statics)
+  function neighborOn(topo, rn, iface) {
+    const i = topo.routers[rn].ifaces.find(x => x.name === iface);
+    const net = netOf(ip2n(i.ip), i.len);
+    for (const on in topo.routers) { if (on === rn) continue; for (const oi of topo.routers[on].ifaces) if (ifUp(topo, on, oi) && oi.len === i.len && netOf(ip2n(oi.ip), oi.len) === net) return { name: on, iface: oi.name }; }
+    return null;
+  }
+
+  // Forward a packet starting at router start toward dst. Returns {ok, hops:[{router, route, matches, nextName, nextIp, outIf}], reason}
+  function forward(topo, start, dstIp) {
+    const dstn = ip2n(dstIp);
+    const hops = []; let cur = start;
+    for (let ttl = 0; ttl < 16; ttl++) {
+      const r = topo.routers[cur];
+      if (r.ifaces.some(i => ip2n(i.ip) === dstn && ifUp(topo, cur, i))) { hops.push({ router: cur, arrived: true }); return { ok: true, hops, end: { type: 'router', name: cur } }; }
+      const table = buildTable(topo, cur);
+      const rt = lpm(table, dstn);
+      const hop = { router: cur, route: rt, matches: matches(table, dstn), table };
+      hops.push(hop);
+      if (!rt) return { ok: false, hops, reason: `${cur} has no route to ${dstIp}, so it drops the packet.` };
+      if (rt.code === 'C' || rt.code === 'L') {
+        const o = onLink(topo, cur, rt.iface, dstn);
+        hop.outIf = rt.iface;
+        if (!o) return { ok: false, hops, reason: `${dstIp} should be on ${cur}'s connected network, but no device answers ARP for it.` };
+        hop.nextName = o.name;
+        if (o.type === 'host') return { ok: true, hops, end: o };
+        hops.push({ router: o.name, arrived: true }); return { ok: true, hops, end: o };
+      }
+      let nextRouter = null;
+      if (rt.nh) {
+        const via = lpm(table.filter(x => x.code === 'C'), ip2n(rt.nh));
+        hop.nextIp = rt.nh;
+        if (!via) return { ok: false, hops, reason: `${cur} cannot reach next hop ${rt.nh}.` };
+        hop.outIf = via.iface;
+        const o = onLink(topo, cur, via.iface, ip2n(rt.nh));
+        if (!o || o.type !== 'router') {
+          // recursive static: resolve next hop through table
+          const rec = lpm(table, ip2n(rt.nh), rt.src);
+          if (rec && rec.nh) { const o2 = onLink(topo, cur, lpm(table.filter(x => x.code === 'C'), ip2n(rec.nh))?.iface || '', ip2n(rec.nh)); if (o2 && o2.type === 'router') { nextRouter = o2.name; } }
+          if (!nextRouter) return { ok: false, hops, reason: `Next hop ${rt.nh} does not answer on ${cur}'s ${via.iface} link.` };
+        } else nextRouter = o.name;
+      } else {
+        hop.outIf = rt.iface;
+        // exit interface: ARP for the destination itself (proxy ARP); hosts on that link first
+        const o = onLink(topo, cur, rt.iface, dstn);
+        if (o) { hop.nextName = o.name; if (o.type === 'host') return { ok: true, hops, end: o }; hops.push({ router: o.name, arrived: true }); return { ok: true, hops, end: o }; }
+        const nb = neighborOn(topo, cur, rt.iface);
+        if (!nb) return { ok: false, hops, reason: `Nobody answers on ${cur}'s ${rt.iface} link.` };
+        nextRouter = nb.name;
+      }
+      hop.nextName = nextRouter;
+      cur = nextRouter;
+    }
+    return { ok: false, hops, reason: 'The packet looped between routers until its TTL expired (a routing loop).', loop: true };
+  }
+
+  // Full ping between hosts: request then reply
+  function ping(topo, srcName, dstName) {
+    const s = topo.hosts.find(h => h.name === srcName), d = topo.hosts.find(h => h.name === dstName);
+    const leg = (a, b) => {
+      if (inNet(ip2n(b.ip), netOf(ip2n(a.ip), a.len), a.len)) return { ok: true, hops: [], direct: true };
+      const gwr = a.router; const r = topo.routers[gwr];
+      const gi = r.ifaces.find(i => i.ip === a.gw);
+      if (!gi || !ifUp(topo, gwr, gi)) return { ok: false, hops: [], reason: `${a.name} cannot reach its default gateway ${a.gw}.` };
+      const res = forward(topo, gwr, b.ip);
+      if (res.ok && res.end.name !== b.name) return { ok: false, hops: res.hops, reason: `Packet reached ${res.end.name}, not ${b.name}.` };
+      return res;
+    };
+    const req = leg(s, d);
+    if (!req.ok) return { ok: false, req, stage: 'request' };
+    const rep = leg(d, s);
+    if (!rep.ok) return { ok: false, req, rep, stage: 'reply' };
+    return { ok: true, req, rep };
+  }
+
+  // Cisco "show ip route" formatter
+  function classful(n) { const a = n >>> 24; return a < 128 ? 8 : a < 192 ? 16 : 24; }
+  function fmtTable(table, opts = {}) {
+    const age = opts.age || '00:00:00';
+    const legend = 'Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP\n' +
+      '       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area\n' +
+      '       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2\n' +
+      '       E1 - OSPF external type 1, E2 - OSPF external type 2, E - EGP\n' +
+      '       i - IS-IS, L1 - IS-IS level-1, L2 - IS-IS level-2, ia - IS-IS inter area\n' +
+      '       * - candidate default, U - per-user static route, o - ODR\n' +
+      '       P - periodic downloaded static route\n\n';
+    const def = table.filter(r => r.len === 0);
+    let gw = 'Gateway of last resort is not set';
+    if (def.length) gw = `Gateway of last resort is ${def[0].nh || 'directly connected'} to network 0.0.0.0`;
+    const line = (r, sub) => {
+      const code = (r.code).padEnd(sub ? 9 : 6, ' ');
+      const pfx = `${n2ip(r.net)}/${r.len}`;
+      if (r.code === 'C' || r.code === 'L') return `${code}${pfx} is directly connected, ${longIf(r.iface)}`;
+      if (r.code[0] === 'S') return r.nh ? `${code}${pfx} [${r.ad}/0] via ${r.nh}` : `${code}${pfx} is directly connected, ${longIf(r.iface)}`;
+      return `${code}${pfx} [110/${r.metric}] via ${r.nh}, ${age}, ${longIf(r.iface)}`;
+    };
+    const out = [];
+    const sorted = table.filter(r => r.len > 0).sort((a, b) => a.net - b.net || a.len - b.len);
+    for (const r of def) out.push(line(r, false));
+    const groups = [];
+    for (const r of sorted) { const cl = classful(r.net); const key = netOf(r.net, cl); let g = groups.find(x => x.key === key); if (!g) { g = { key, cl, items: [] }; groups.push(g); } g.items.push(r); }
+    for (const g of groups) {
+      // ECMP routes share one prefix line in IOS, but we print the first line per route and the extra next hops indented
+      const uniq = []; for (const r of g.items) { const u = uniq.find(x => x.net === r.net && x.len === r.len && x.code === r.code); if (u) u.extra.push(r); else uniq.push({ ...r, extra: [] }); }
+      const single = uniq.length === 1 && uniq[0].len === g.cl;
+      const masks = [...new Set(uniq.map(r => r.len))];
+      if (!single) {
+        if (masks.length === 1) out.push(`      ${n2ip(g.key)}/${masks[0]} is subnetted, ${uniq.length} subnet${uniq.length > 1 ? 's' : ''}`);
+        else out.push(`      ${n2ip(g.key)}/${g.cl} is variably subnetted, ${uniq.length} subnets, ${masks.length} masks`);
+      }
+      for (const r of uniq) {
+        out.push(line(r, !single));
+        for (const e of r.extra) {
+          const pad = ' '.repeat((single ? 6 : 9) + `${n2ip(r.net)}/${r.len}`.length + 1);
+          out.push(e.code[0] === 'S' ? `${pad}[${e.ad}/0] via ${e.nh}` : `${pad}[110/${e.metric}] via ${e.nh}, ${age}, ${longIf(e.iface)}`);
+        }
+      }
+    }
+    return (opts.legend === false ? '' : legend) + gw + '\n\n' + out.join('\n');
+  }
+
+  // Parse "ip route" / "no ip route" commands for router r. Returns {ok, route, remove, error}
+  function parseRoute(cmd, router) {
+    const t = cmd.trim().replace(/\s+/g, ' ');
+    if (!t) return { ok: false, error: '' };
+    let m = t.match(/^(no )?ip route (\S+) (\S+)(?: (.+))?$/i);
+    if (!m) {
+      if (/^ip ro/i.test(t)) return { ok: false, error: '% Incomplete command. Pattern: ip route <network> <subnet-mask> <next-hop-ip | exit-interface> [distance]' };
+      return { ok: false, error: '% Invalid input detected. This simulator accepts ip route and no ip route commands.' };
+    }
+    const remove = !!m[1];
+    const netn = ip2n(m[2]); if (netn === null) return { ok: false, error: `% Invalid network address "${m[2]}".` };
+    const len = maskLen(m[3]);
+    if (ip2n(m[3]) === null) return { ok: false, error: `% Invalid subnet mask "${m[3]}". Use dotted decimal, for example 255.255.255.0 (not /24).` };
+    if (len < 0) return { ok: false, error: `% Invalid subnet mask "${m[3]}". The 1 bits in a mask must be continuous from the left.` };
+    if (netOf(netn, len) !== netn) return { ok: false, error: `%Inconsistent address and mask. ${m[2]} has host bits set for mask ${m[3]}; the network address is ${n2ip(netOf(netn, len))}.` };
+    if (!m[4]) return { ok: false, error: '% Incomplete command. Add a next-hop IP address or an exit interface.' };
+    const parts = m[4].split(' ');
+    let nh = null, iface = null, ad = 1, i = 0;
+    const ifn = normIf(parts[0]);
+    if (ifn) { iface = ifn; i = 1; if (!router.ifaces.some(x => x.name === iface)) return { ok: false, error: `% Interface ${longIf(iface)} does not exist on this router.` };
+      if (parts[1] && ip2n(parts[1]) !== null) { nh = parts[1]; i = 2; } }
+    else if (ip2n(parts[0]) !== null) { nh = parts[0]; i = 1; }
+    else return { ok: false, error: `% Invalid input "${parts[0]}". Expected a next-hop IP address (like 10.0.0.2) or an interface (like g0/0/1).` };
+    if (parts[i] !== undefined) { if (!/^\d+$/.test(parts[i]) || +parts[i] < 1 || +parts[i] > 255) return { ok: false, error: `% Invalid distance "${parts[i]}". Administrative distance must be 1 to 255.` }; ad = +parts[i]; i++; }
+    if (parts[i] !== undefined) return { ok: false, error: `% Invalid input detected at "${parts[i]}".` };
+    if (nh && router.ifaces.some(x => x.ip === nh)) return { ok: false, error: `%Invalid next hop address (it's this router). ${nh} belongs to this router; use the neighbor's IP.` };
+    return { ok: true, remove, route: { net: n2ip(netn), len, nh: nh || undefined, iface: iface || undefined, ad } };
+  }
+  function routeCmd(s) { return `ip route ${s.net} ${n2ip(lenMask(s.len))} ${s.iface ? shortIf(longIf(s.iface)).replace(/^G/, 'g').replace(/^S/, 's') + (s.nh ? ' ' + s.nh : '') : s.nh}${s.ad !== 1 ? ' ' + s.ad : ''}`; }
+
+  return { ip2n, n2ip, lenMask, maskLen, netOf, inNet, longIf, shortIf, normIf, buildTable, lpm, matches, forward, ping, fmtTable, parseRoute, routeCmd, owner };
+})();
+
+
+const hasGSAP = typeof window.gsap !== 'undefined';
+const $ = s => document.querySelector(s);
+
+function baseTopo() {
+  return {
+    routers: {
+      HQ: { label: 'HQ Miami', ifaces: [{ name: 'G0/0/0', ip: '192.168.10.1', len: 24 }, { name: 'G0/0/1', ip: '10.0.0.1', len: 30 }, { name: 'G0/0/2', ip: '10.0.0.5', len: 30 }, { name: 'S0/1/0', ip: '203.0.113.2', len: 30 }],
+        statics: [{ net: '0.0.0.0', len: 0, nh: '203.0.113.1', ad: 1 }, { net: '192.168.20.0', len: 24, nh: '10.0.0.2', ad: 1 }, { net: '192.168.20.0', len: 24, nh: '10.0.0.6', ad: 10 }, { net: '192.168.30.0', len: 24, nh: '10.0.0.6', ad: 1 }, { net: '192.168.30.0', len: 24, nh: '10.0.0.2', ad: 10 }] },
+      FTL: { label: 'Fort Lauderdale', ifaces: [{ name: 'G0/0/0', ip: '192.168.20.1', len: 24 }, { name: 'G0/0/1', ip: '10.0.0.2', len: 30 }, { name: 'G0/0/2', ip: '10.0.0.9', len: 30 }],
+        statics: [{ net: '0.0.0.0', len: 0, nh: '10.0.0.1', ad: 1 }, { net: '0.0.0.0', len: 0, nh: '10.0.0.10', ad: 10 }, { net: '192.168.30.0', len: 24, nh: '10.0.0.10', ad: 1 }] },
+      HMS: { label: 'Homestead', ifaces: [{ name: 'G0/0/0', ip: '192.168.30.1', len: 24 }, { name: 'G0/0/1', ip: '10.0.0.6', len: 30 }, { name: 'G0/0/2', ip: '10.0.0.10', len: 30 }],
+        statics: [{ net: '0.0.0.0', len: 0, nh: '10.0.0.5', ad: 1 }, { net: '0.0.0.0', len: 0, nh: '10.0.0.9', ad: 10 }, { net: '192.168.20.0', len: 24, nh: '10.0.0.9', ad: 1 }] },
+      ISP: { label: 'ISP', ifaces: [{ name: 'G0/0/0', ip: '203.0.113.9', len: 29 }, { name: 'S0/1/0', ip: '203.0.113.1', len: 30 }],
+        statics: [{ net: '192.168.0.0', len: 19, nh: '203.0.113.2', ad: 1 }] },
+    },
+    hosts: [
+      { name: 'PC-HQ', ip: '192.168.10.10', len: 24, gw: '192.168.10.1', router: 'HQ' },
+      { name: 'PC-FTL', ip: '192.168.20.10', len: 24, gw: '192.168.20.1', router: 'FTL' },
+      { name: 'PC-HMS', ip: '192.168.30.10', len: 24, gw: '192.168.30.1', router: 'HMS' },
+      { name: 'WEB', ip: '203.0.113.10', len: 29, gw: '203.0.113.9', router: 'ISP' },
+    ], down: []
+  };
+}
+const SCEN = {
+  complete: { note: 'All links are up. Every router has the static routes from Assignment 5.2, including floating backups with distance 10.', mod: t => t },
+  noreturn: { note: 'Someone erased every static route on the Homestead router. Try PC-FTL to PC-HMS: the request arrives, but does the reply?', mod: t => { t.routers.HMS.statics = []; return t; } },
+  linkdown: { note: 'The cable between HQ and Fort Lauderdale is cut. The main routes that used it disappear, and the floating routes (distance 10) take their place.', mod: t => { t.down = ['HQ:G0/0/1', 'FTL:G0/0/1']; return t; } },
+  typo: { note: 'The HQ routes for Homestead were typed as 192.168.3.0 instead of 192.168.30.0. Try PC-HQ to PC-HMS and watch where the packet goes.', mod: t => { t.routers.HQ.statics.forEach(s => { if (s.net === '192.168.30.0') s.net = '192.168.3.0'; }); return t; } },
+};
+let scen = 'complete', topo = SCEN.complete.mod(baseTopo()), selRouter = 'HQ';
+
+// ---------- diagram ----------
+const POS = { WEB: [690, 60], ISP: [420, 60], HQ: [420, 200], 'PC-HQ': [660, 200], FTL: [160, 350], HMS: [640, 350], 'PC-FTL': [160, 445], 'PC-HMS': [640, 445] };
+const LINKS = [
+  { a: 'ISP', b: 'WEB', net: '203.0.113.8/29', ia: '.9', ib: '.10', ends: ['ISP:G0/0/0'] },
+  { a: 'ISP', b: 'HQ', net: '203.0.113.0/30', ia: 'S0/1/0 .1', ib: 'S0/1/0 .2', ends: ['ISP:S0/1/0', 'HQ:S0/1/0'] },
+  { a: 'HQ', b: 'PC-HQ', net: '192.168.10.0/24', ia: 'G0/0/0 .1', ib: '.10', ends: ['HQ:G0/0/0'] },
+  { a: 'HQ', b: 'FTL', net: '10.0.0.0/30', ia: 'G0/0/1 .1', ib: 'G0/0/1 .2', ends: ['HQ:G0/0/1', 'FTL:G0/0/1'] },
+  { a: 'HQ', b: 'HMS', net: '10.0.0.4/30', ia: 'G0/0/2 .5', ib: 'G0/0/1 .6', ends: ['HQ:G0/0/2', 'HMS:G0/0/1'] },
+  { a: 'FTL', b: 'HMS', net: '10.0.0.8/30', ia: 'G0/0/2 .9', ib: 'G0/0/2 .10', ends: ['FTL:G0/0/2', 'HMS:G0/0/2'] },
+  { a: 'FTL', b: 'PC-FTL', net: '192.168.20.0/24', ia: 'G0/0/0 .1', ib: '.10', ends: ['FTL:G0/0/0'] },
+  { a: 'HMS', b: 'PC-HMS', net: '192.168.30.0/24', ia: 'G0/0/0 .1', ib: '.10', ends: ['HMS:G0/0/0'] },
+];
+const svgNS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent, text) { const e = document.createElementNS(svgNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text !== undefined) e.textContent = text; if (parent) parent.appendChild(e); return e; }
+function drawTopo() {
+  const svg = $('#topo'); svg.innerHTML = '';
+  const gl = el('g', {}, svg);
+  for (const L of LINKS) {
+    const [x1, y1] = POS[L.a], [x2, y2] = POS[L.b];
+    const isDown = L.ends.some(e => topo.down.includes(e));
+    L.el = el('line', { x1, y1, x2, y2, class: 'link' + (isDown ? ' down' : '') }, gl);
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    const horiz = Math.abs(y2 - y1) < 20;
+    el('text', { x: mx + (horiz ? 0 : 10), y: my + (horiz ? -10 : 0), class: 'lbl', 'text-anchor': horiz ? 'middle' : 'start' }, gl, L.net + (isDown ? '  (down)' : ''));
+    const t = 0.24;
+    const ax = x1 + (x2 - x1) * t, ay = y1 + (y2 - y1) * t, bx = x1 + (x2 - x1) * (1 - t), by = y1 + (y2 - y1) * (1 - t);
+    el('text', { x: ax + (horiz ? 0 : 8), y: ay + (horiz ? 20 : 4), class: 'ip', 'text-anchor': horiz ? 'middle' : 'start' }, gl, L.ia);
+    el('text', { x: bx + (horiz ? 0 : 8), y: by + (horiz ? 20 : 4), class: 'ip', 'text-anchor': horiz ? 'middle' : 'start' }, gl, L.ib);
+  }
+  for (const h of topo.hosts) {
+    const [x, y] = POS[h.name];
+    const g = el('g', { class: 'host', transform: `translate(${x},${y})` }, svg);
+    el('rect', { x: -40, y: -16, width: 80, height: 32, rx: 6 }, g);
+    el('text', { x: 0, y: 4, class: 'hname', 'text-anchor': 'middle' }, g, h.name);
+  }
+  for (const rn of Object.keys(topo.routers)) {
+    const [x, y] = POS[rn];
+    const g = el('g', { class: 'router' + (rn === selRouter ? ' sel' : ''), transform: `translate(${x},${y})`, tabindex: 0, role: 'button', 'aria-label': `Show routing table for ${topo.routers[rn].label}` }, svg);
+    g.dataset.r = rn;
+    el('circle', { r: 28 }, g);
+    el('text', { x: 0, y: 5, class: 'rname', 'text-anchor': 'middle' }, g, rn);
+    const LP = { ISP: [0, -36, 'middle'], HQ: [-36, 5, 'end'], FTL: [-36, 5, 'end'], HMS: [36, -14, 'start'] }[rn] || [0, 46, 'middle'];
+    el('text', { x: LP[0], y: LP[1], class: 'lbl', 'text-anchor': LP[2] }, g, topo.routers[rn].label);
+    g.addEventListener('click', () => selectRouter(rn));
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRouter(rn); } });
+  }
+  el('circle', { id: 'pkt', r: 9, fill: '#E1141E', stroke: '#fff', 'stroke-width': 3, cx: -50, cy: -50 }, svg);
+}
+
+// ---------- routing tables ----------
+function esc(s) { return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+function selectRouter(rn) {
+  selRouter = rn;
+  document.querySelectorAll('.topo .router').forEach(g => g.classList.toggle('sel', g.dataset.r === rn));
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.r === rn));
+  const tbl = NET.buildTable(topo, rn);
+  $('#cli').innerHTML = `<div class="cli">${esc(rn + '# show ip route\n' + NET.fmtTable(tbl))}</div>`;
+}
+function drawTabs() {
+  $('#tabs').innerHTML = '';
+  for (const rn of Object.keys(topo.routers)) {
+    const b = document.createElement('button'); b.textContent = rn; b.dataset.r = rn; b.setAttribute('role', 'tab');
+    b.addEventListener('click', () => selectRouter(rn)); $('#tabs').appendChild(b);
+  }
+}
+
+// ---------- trace ----------
+function fillSelects() {
+  const src = $('#src'), dst = $('#dst');
+  src.innerHTML = topo.hosts.map(h => `<option value="${h.name}">${h.name} (${h.ip})</option>`).join('');
+  dst.innerHTML = topo.hosts.map(h => `<option value="${h.name}">${h.name} (${h.ip})</option>`).join('') + '<option value="__custom">Custom IP address</option>';
+  src.value = 'PC-FTL'; dst.value = 'PC-HQ';
+}
+$('#dst').addEventListener('change', () => { $('#customWrap').hidden = $('#dst').value !== '__custom'; });
+
+let steps = [], stepIdx = -1, playing = false;
+function pfx(rt) { return `${NET.n2ip(rt.net)}/${rt.len}`; }
+function routeDesc(rt) {
+  if (rt.code === 'C') return `${rt.code} ${pfx(rt)} directly connected, ${rt.iface}`;
+  if (rt.code === 'L') return `${rt.code} ${pfx(rt)} (this router)`;
+  return `${rt.code} ${pfx(rt)} [${rt.ad}/0] via ${rt.nh || rt.iface}`;
+}
+function legSteps(res, srcHost, dstIp, label) {
+  const out = [];
+  out.push({ kind: 'start', text: `${label}: ${srcHost.name} (${srcHost.ip}) sends to ${dstIp}. The destination is not on its own network, so it sends the packet to its default gateway ${srcHost.gw}.`, path: [srcHost.name, srcHost.router] });
+  res.hops.forEach((h, i) => {
+    if (h.arrived) { out.push({ kind: 'done', text: `${h.router} owns ${dstIp}, so the packet has arrived at the router itself.`, path: [] }); return; }
+    const rows = h.matches.map(m => `<tr class="${m === h.route ? 'win' : ''}"><td>${esc(routeDesc(m))}</td><td>/${m.len}</td></tr>`).join('');
+    let txt = `<div class="hdr">${h.router}: looking up ${dstIp}</div>`;
+    if (h.matches.length) {
+      txt += `<div class="scroll-x"><table class="mt"><tr><th>Matching routes</th><th>Prefix</th></tr>${rows}</table></div>`;
+      if (h.matches.length > 1) txt += `<p style="margin:6px 0 0">${h.matches.length} routes match. The longest prefix, /${h.route.len}, wins.</p>`;
+      else txt += `<p style="margin:6px 0 0">Only one route matches, so ${h.router} uses it.</p>`;
+    } else txt += `<p style="margin:6px 0 0">No route matches ${dstIp}, not even a default route.</p>`;
+    const isLast = i === res.hops.length - 1;
+    if (h.route && h.nextName) txt += `<p style="margin:4px 0 0">Forward out <b>${h.outIf}</b>${h.nextIp ? ' to next hop <b>' + h.nextIp + '</b>' : ''} (${h.nextName}).</p>`;
+    let kind = 'hop';
+    if (isLast && !res.ok) { txt += `<p style="margin:4px 0 0"><b>Dropped.</b> ${esc(res.reason)}</p>`; kind = 'fail'; }
+    out.push({ kind, html: txt, path: h.nextName ? [h.router, h.nextName] : [], router: h.router, drop: kind === 'fail' });
+  });
+  if (res.ok && res.end && res.end.type === 'host') out.push({ kind: 'done', text: `${res.end.name} receives the packet.`, path: [] });
+  return out;
+}
+function buildTrace() {
+  const s = topo.hosts.find(h => h.name === $('#src').value);
+  let dstIp, dHost = null;
+  if ($('#dst').value === '__custom') {
+    dstIp = $('#custom').value.trim();
+    if (NET.ip2n(dstIp) === null) { $('#traceOut').innerHTML = '<div class="feedback bad">Type a valid IPv4 address, for example 8.8.8.8.</div>'; return null; }
+  } else { dHost = topo.hosts.find(h => h.name === $('#dst').value); dstIp = dHost.ip; }
+  if (dHost && dHost.name === s.name) { $('#traceOut').innerHTML = '<div class="feedback info">Pick a different destination.</div>'; return null; }
+  if (dHost && NET.inNet(NET.ip2n(dHost.ip), NET.netOf(NET.ip2n(s.ip), s.len), s.len)) { $('#traceOut').innerHTML = '<div class="feedback info">Same network: the PC delivers directly without a router.</div>'; return null; }
+  const out = [];
+  const req = NET.forward(topo, s.router, dstIp);
+  out.push(...legSteps(req, s, dstIp, 'Request'));
+  let ok = req.ok && (!dHost || req.end.name === dHost.name || (req.end.type === 'router'));
+  if (req.ok && dHost) {
+    const rep = NET.forward(topo, dHost.router, s.ip);
+    out.push(...legSteps(rep, dHost, s.ip, 'Reply'));
+    ok = rep.ok;
+    out.push(ok ? { kind: 'done', text: `Ping successful: both the request and the reply found a path.`, path: [], final: true } : { kind: 'fail', text: `Ping failed on the reply. The request arrived, but ${dHost.name}'s side of the network has no path back to ${s.ip}. Every router on the return path needs a route too.`, path: [], final: true });
+  } else if (!req.ok) out.push({ kind: 'fail', text: req.loop ? 'Ping failed: routing loop. Two routers keep sending the packet to each other until the TTL reaches zero.' : 'Ping failed on the request.', path: [], final: true });
+  else out.push({ kind: 'done', text: `The packet reached ${req.end.name}.`, path: [], final: true });
+  return out;
+}
+function renderSteps() {
+  const ol = document.createElement('ol'); ol.className = 'steps';
+  steps.forEach((st, i) => {
+    if (i > stepIdx) return;
+    const li = document.createElement('li');
+    li.className = (i === stepIdx ? 'cur ' : '') + (st.kind === 'fail' ? 'fail' : st.kind === 'done' ? 'done' : '');
+    li.innerHTML = st.html || esc(st.text);
+    ol.appendChild(li);
+  });
+  $('#traceOut').innerHTML = ''; $('#traceOut').appendChild(ol);
+  const cur = ol.lastElementChild; if (cur && stepIdx > 0) cur.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  $('#next').disabled = stepIdx >= steps.length - 1; $('#play').disabled = stepIdx >= steps.length - 1;
+}
+function animate(st) {
+  document.querySelectorAll('.topo .link').forEach(l => l.classList.remove('active'));
+  document.querySelectorAll('.topo .router').forEach(g => g.classList.remove('drop'));
+  if (st.drop) { const g = document.querySelector(`.topo .router[data-r="${st.router}"]`); if (g) g.classList.add('drop'); }
+  if (st.router && st.kind !== 'start') selectRouter(st.router);
+  const pkt = $('#pkt');
+  if (st.path && st.path.length === 2) {
+    const [a, b] = st.path; const L = LINKS.find(l => (l.a === a && l.b === b) || (l.a === b && l.b === a)); if (L) L.el.classList.add('active');
+    const [x1, y1] = POS[a], [x2, y2] = POS[b];
+    if (hasGSAP) { gsap.killTweensOf(pkt); gsap.fromTo(pkt, { attr: { cx: x1, cy: y1 } }, { attr: { cx: x2, cy: y2 }, duration: 0.9, ease: 'power1.inOut' }); }
+    else { pkt.setAttribute('cx', x2); pkt.setAttribute('cy', y2); }
+  }
+}
+function step() { if (stepIdx < steps.length - 1) { stepIdx++; animate(steps[stepIdx]); renderSteps(); } }
+$('#trace').addEventListener('click', () => { const s = buildTrace(); if (!s) return; steps = s; stepIdx = -1; playing = false; step(); });
+$('#next').addEventListener('click', step);
+$('#play').addEventListener('click', () => { if (playing) return; playing = true; const tick = () => { if (!playing || stepIdx >= steps.length - 1) { playing = false; return; } step(); setTimeout(tick, 1300); }; tick(); });
+
+function setScenario(s) {
+  scen = s; topo = SCEN[s].mod(baseTopo());
+  document.querySelectorAll('.scen button').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === s));
+  $('#scenNote').textContent = SCEN[s].note;
+  steps = []; stepIdx = -1; $('#traceOut').innerHTML = ''; $('#next').disabled = true; $('#play').disabled = true;
+  drawTopo(); selectRouter(selRouter);
+  const pre = { noreturn: ['PC-FTL', 'PC-HMS'], linkdown: ['PC-FTL', 'PC-HQ'], typo: ['PC-HQ', 'PC-HMS'], complete: ['PC-FTL', 'PC-HQ'] }[s];
+  $('#src').value = pre[0]; $('#dst').value = pre[1]; $('#customWrap').hidden = true;
+}
+document.querySelectorAll('.scen button').forEach(b => b.addEventListener('click', () => setScenario(b.dataset.s)));
+
+// ---------- quiz (always uses the complete network) ----------
+const QUIZ = [
+  { r: 'HQ', d: '192.168.20.77' }, { r: 'HQ', d: '8.8.8.8' }, { r: 'FTL', d: '192.168.30.200' },
+  { r: 'FTL', d: '10.0.0.1' }, { r: 'ISP', d: '192.168.20.10' }, { r: 'HQ', d: '192.168.10.1' },
+];
+let qScore = 0;
+function drawQuiz() {
+  const full = baseTopo(); const box = $('#quiz'); box.innerHTML = '';
+  QUIZ.forEach((q, qi) => {
+    const tbl = NET.buildTable(full, q.r); const win = NET.lpm(tbl, NET.ip2n(q.d));
+    const others = tbl.filter(r => r !== win);
+    // pick distractors: other matches first, then nearby routes
+    const m = NET.matches(tbl, NET.ip2n(q.d)).filter(r => r !== win);
+    const pool = [...m, ...others.filter(r => !m.includes(r))].slice(0, 3);
+    const opts = [win, ...pool].sort((a, b) => (a.net - b.net) || (a.len - b.len));
+    const div = document.createElement('div'); div.className = 'q';
+    div.innerHTML = `<div><b>${qi + 1}.</b> Router <b>${q.r}</b> receives a packet for <code>${q.d}</code>. Which route does it use?</div>`;
+    const od = document.createElement('div'); od.className = 'opts';
+    const fb = document.createElement('div');
+    opts.forEach(o => {
+      const b = document.createElement('button'); b.textContent = routeDesc(o);
+      b.addEventListener('click', () => {
+        if (div.dataset.done) return; div.dataset.done = 1;
+        od.querySelectorAll('button').forEach(x => x.disabled = true);
+        const right = o === win; if (right) { qScore++; $('#qscore').textContent = `${qScore} / 6`; }
+        b.classList.add(right ? 'right' : 'wrong');
+        [...od.children][opts.indexOf(win)].classList.add('right');
+        const nm = NET.matches(tbl, NET.ip2n(q.d)).length;
+        fb.className = 'feedback ' + (right ? 'ok' : 'bad');
+        fb.textContent = (right ? 'Correct. ' : 'Not quite. ') + (nm > 1 ? `${nm} routes match ${q.d}; the longest prefix (/${win.len}) wins.` : `Only /${win.len} matches ${q.d}.`) + (win.code === 'L' ? ' A /32 local route means the address belongs to the router itself.' : '') + (win.len === 0 ? ' The default route matches everything, so it is used only when nothing more specific exists.' : '');
+      });
+      od.appendChild(b);
+    });
+    div.appendChild(od); div.appendChild(fb); box.appendChild(div);
+  });
+}
+
+fillSelects(); drawTabs(); setScenario('complete'); drawQuiz();
+</script>
+</body>
+</html>

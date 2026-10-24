@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSPF path visualizer</title>
+<meta name="description" content="CIT-283 Week 6 interactive: change OSPF link costs and watch the shortest path first calculation build a routing table.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  .grid>*{min-width:0}
+  [hidden]{display:none!important}
+  @media(min-width:900px){.grid.ospf{grid-template-columns:1.25fr 1fr}}
+  .topo{width:100%;height:auto;display:block;background:#FBFCFD;border:1px solid var(--line);border-radius:10px;touch-action:manipulation}
+  .topo .link{stroke:#94A3B8;stroke-width:4;cursor:pointer}
+  .topo .link:hover{stroke:#64748B}
+  .topo .link.down{stroke:var(--bad);stroke-dasharray:8 6}
+  .topo .link.tree{stroke:var(--net-green);stroke-width:7}
+  .topo .link.selected{stroke:var(--net-blue)}
+  .topo .hit{stroke:transparent;stroke-width:22;cursor:pointer}
+  .topo .cost rect{fill:#fff;stroke:#CBD5E1}
+  .topo .cost text{font-size:13px;font-weight:700;fill:var(--ink);font-family:var(--mono)}
+  .topo .cost.sel rect{stroke:var(--net-blue);stroke-width:2}
+  .topo .router circle{fill:#fff;stroke:var(--ink);stroke-width:2.5}
+  .topo .router{cursor:pointer}
+  .topo .router.src circle{fill:var(--au-red);stroke:var(--au-red-dark)}
+  .topo .router.src .rname{fill:#fff}
+  .topo .router.done circle{stroke:var(--net-green);stroke-width:4}
+  .topo .router.cur circle{stroke:var(--net-amber);stroke-width:5}
+  .topo .rname{font-weight:700;font-size:14px;fill:var(--ink)}
+  .topo .lan{font-size:11px;fill:#64748B;font-family:var(--mono)}
+  .topo .dist{font-size:12px;font-weight:700;fill:var(--net-green)}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-top:12px}
+  .row label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+  .switch{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-2);cursor:pointer}
+  .switch input{width:18px;height:18px;accent-color:var(--au-red);flex:none}
+  .row label.switch{flex-direction:row;color:var(--ink-2);font-size:14px}
+  .linkpanel{border:1px dashed #CBD5E1;border-radius:10px;padding:12px;margin-top:12px;font-size:14px;background:#FBFCFD}
+  .spf{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px}
+  .spf th,.spf td{border-bottom:1px solid var(--line);padding:6px 6px;text-align:left}
+  .spf th{font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.05em}
+  .spf tr.confirmed td{color:var(--net-green);font-weight:600}
+  .spf tr.current td{background:var(--warn-soft)}
+  .explain{background:#F5F6F8;border-radius:10px;padding:10px 12px;font-size:14px;margin-top:10px;min-height:48px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 8px}
+  .tabs button{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer}
+  .tabs button[aria-selected=true]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .adj svg{width:100%;height:auto;display:block;background:#FBFCFD;border:1px solid var(--line);border-radius:10px}
+  .states{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+  .states span{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:#EEF1F5;color:var(--muted);transition:background .2s,color .2s}
+  .states span.on{background:var(--net-green);color:#fff}
+  .states span.stuck{background:var(--bad);color:#fff}
+  .toggles{display:grid;gap:8px;margin-top:8px}
+  @media(min-width:640px){.toggles{grid-template-columns:1fr 1fr}}
+  .try{margin:6px 0 0;padding-left:20px}
+  .try li{margin-bottom:6px}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 6 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 6 · Explorer</span>
+    <h1>OSPF path visualizer</h1>
+    <p class="lede">Sunrise Logistics now has five sites running OSPF in area 0. Change link speeds, set costs, or cut a link, then watch a router run the shortest path first (SPF) calculation step by step and build its routing table. A second tab shows how two routers become OSPF neighbors.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Click a router to make it the source. That router will calculate its best path to every other site.</li>
+      <li>Click a link (or its cost box) to change its bandwidth, give it a manual cost, or take it down.</li>
+      <li>Press Next step to watch SPF confirm one router at a time, or Run all to see the result. Green links form the shortest path tree.</li>
+      <li>Read the routing table at the bottom of the panel. Every O route shows [110/cost]: 110 is the OSPF administrative distance, and cost is the total of the outgoing interface costs.</li>
+      <li>Open the Neighbor adjacency tab to bring up a link between two routers and see the OSPF neighbor states, including what happens when settings do not match.</li>
+    </ol>
+  </details>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabSpf" aria-selected="true">Shortest path first</button>
+    <button role="tab" id="tabAdj" aria-selected="false">Neighbor adjacency</button>
+  </div>
+
+  <div id="paneSpf" class="grid ospf">
+    <section class="card">
+      <h2>Topology and link costs</h2>
+      <svg class="topo" id="topo" viewBox="0 0 800 440" role="img" aria-label="Five router OSPF topology with link costs"></svg>
+      <div class="row">
+        <label class="switch"><input type="checkbox" id="ref1000"> Use <code>auto-cost reference-bandwidth 1000</code></label>
+        <button class="btn" id="resetTopo">Reset topology</button>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin:8px 0 0">Cost formula: reference bandwidth divided by interface bandwidth, never lower than 1. The default reference is 100 Mbps, so 100 Mbps and 1 Gbps links both cost 1.</p>
+      <div class="linkpanel" id="linkpanel">Click a link to edit it.</div>
+    </section>
+    <section class="card">
+      <h2>SPF from <span id="srcName">HQ</span></h2>
+      <div class="row" style="margin-top:0">
+        <button class="btn primary" id="stepBtn">Next step</button>
+        <button class="btn" id="allBtn">Run all</button>
+        <button class="btn" id="restartBtn">Restart</button>
+      </div>
+      <div class="explain" id="explain" aria-live="polite">Press Next step to start the calculation.</div>
+      <div class="scroll-x"><table class="spf" id="spf"></table></div>
+      <h3 style="margin-top:16px">show ip route ospf</h3>
+      <div class="cli" id="rt" style="max-height:300px;font-size:12px">Run SPF to completion to build the table.</div>
+    </section>
+  </div>
+
+  <div id="paneAdj" class="grid ospf adj" hidden>
+    <section class="card">
+      <h2>Bring up a neighbor</h2>
+      <svg id="adjSvg" viewBox="0 0 600 220" role="img" aria-label="Two routers exchanging OSPF packets"></svg>
+      <div class="states" id="states"></div>
+      <div class="row">
+        <button class="btn primary" id="adjGo">Bring the link up</button>
+        <button class="btn" id="adjReset">Reset</button>
+      </div>
+      <div class="explain" id="adjExplain" aria-live="polite">HQ (router ID 1.1.1.1) and the new Doral router (router ID 4.4.4.4) are about to be connected on 10.0.0.12/30.</div>
+    </section>
+    <section class="card">
+      <h2>Settings on the Doral router</h2>
+      <p style="font-size:14px;color:var(--ink-2);margin:0">Two routers only become neighbors when key settings match. Break one setting and bring the link up again.</p>
+      <div class="toggles">
+        <label class="switch"><input type="checkbox" id="mArea"> Wrong area (area 1)</label>
+        <label class="switch"><input type="checkbox" id="mHello"> Hello timer 30 seconds</label>
+        <label class="switch"><input type="checkbox" id="mMask"> Wrong mask (/29)</label>
+        <label class="switch"><input type="checkbox" id="mPassive"> Passive interface</label>
+      </div>
+      <h3 style="margin-top:16px">show ip ospf neighbor (on HQ)</h3>
+      <div class="cli" id="nbr" style="font-size:12px">HQ# show ip ospf neighbor
+</div>
+      <h3 style="margin-top:16px">Try this</h3>
+      <ol class="try">
+        <li>Bring the link up with no changes and name each state in order.</li>
+        <li>Turn on Wrong area. At which state does the process stop, and why does HQ never list Doral as a neighbor?</li>
+        <li>Turn on Passive interface. What is different about the packets you see?</li>
+        <li>Which of these problems would you find with <code>show ip ospf interface</code>?</li>
+      </ol>
+    </section>
+  </div>
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+<script>
+const hasGSAP = typeof window.gsap !== 'undefined';
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+// ---------- model ----------
+const R = {
+  WPB: { label: 'West Palm Beach', rid: '5.5.5.5', lan: '192.168.50.0/24', pos: [150, 85] },
+  DOR: { label: 'Doral', rid: '4.4.4.4', lan: '192.168.40.0/24', pos: [450, 85] },
+  FTL: { label: 'Fort Lauderdale', rid: '2.2.2.2', lan: '192.168.20.0/24', pos: [150, 320] },
+  HQ: { label: 'HQ Miami', rid: '1.1.1.1', lan: '192.168.10.0/24', pos: [450, 320] },
+  HMS: { label: 'Homestead', rid: '3.3.3.3', lan: '192.168.30.0/24', pos: [700, 320] },
+};
+const BW = { 10: '10 Mbps', 100: '100 Mbps', 1000: '1 Gbps' };
+// a, b, subnet (/30), a gets .1 b gets .2 offset, interface names
+const BASE_LINKS = [
+  { id: 'L1', a: 'WPB', b: 'DOR', net: '10.0.1.0', ia: 'G0/0/1', ib: 'G0/0/1', bw: 100 },
+  { id: 'L2', a: 'WPB', b: 'FTL', net: '10.0.1.4', ia: 'G0/0/2', ib: 'G0/0/2', bw: 1000 },
+  { id: 'L3', a: 'FTL', b: 'HQ', net: '10.0.1.8', ia: 'G0/0/1', ib: 'G0/0/1', bw: 1000 },
+  { id: 'L4', a: 'DOR', b: 'HQ', net: '10.0.1.12', ia: 'G0/0/2', ib: 'G0/0/2', bw: 1000 },
+  { id: 'L5', a: 'FTL', b: 'DOR', net: '10.0.1.16', ia: 'G0/1/0', ib: 'G0/1/0', bw: 10 },
+  { id: 'L6', a: 'HQ', b: 'HMS', net: '10.0.1.20', ia: 'G0/1/0', ib: 'G0/0/1', bw: 100 },
+  { id: 'L7', a: 'DOR', b: 'HMS', net: '10.0.1.24', ia: 'G0/1/1', ib: 'G0/0/2', bw: 1000 },
+];
+let LINKS = [], src = 'HQ', selLink = null;
+const ip = (net, h) => { const p = net.split('.'); p[3] = String(+p[3] + h); return p.join('.'); };
+function resetLinks() { LINKS = BASE_LINKS.map(l => ({ ...l, up: true, manual: null })); }
+const ref = () => $('#ref1000').checked ? 1000 : 100;
+const autoCost = bw => Math.max(1, Math.floor(ref() / bw));
+const cost = l => l.manual != null ? l.manual : autoCost(l.bw);
+const LAN_BW = 1000; // every LAN is GigabitEthernet0/0/0
+const lanCost = () => autoCost(LAN_BW);
+
+// ---------- Dijkstra, recorded step by step ----------
+function runSPF(source) {
+  const nodes = Object.keys(R);
+  const dist = {}, first = {}, done = {};
+  nodes.forEach(n => { dist[n] = Infinity; first[n] = []; done[n] = false; });
+  dist[source] = 0;
+  const steps = [];
+  for (let k = 0; k < nodes.length; k++) {
+    let u = null;
+    for (const n of nodes) if (!done[n] && dist[n] < Infinity && (u === null || dist[n] < dist[u] || (dist[n] === dist[u] && n < u))) u = n;
+    if (u === null) { steps.push({ type: 'unreach', snapshot: snap() }); break; }
+    done[u] = true;
+    const upd = [];
+    for (const l of LINKS) {
+      if (!l.up) continue;
+      let v = null; if (l.a === u) v = l.b; else if (l.b === u) v = l.a; else continue;
+      if (done[v]) continue;
+      const nd = dist[u] + cost(l);
+      const viaFirst = u === source ? [{ hop: v, link: l }] : first[u];
+      if (nd < dist[v]) { dist[v] = nd; first[v] = viaFirst.slice(); upd.push({ v, nd, how: 'better' }); }
+      else if (nd === dist[v]) { for (const f of viaFirst) if (!first[v].some(x => x.hop === f.hop && x.link === f.link)) first[v].push(f); upd.push({ v, nd, how: 'equal' }); }
+      else upd.push({ v, nd, how: 'worse', old: dist[v] });
+    }
+    steps.push({ type: 'confirm', u, d: dist[u], upd, snapshot: snap() });
+  }
+  return { steps, dist, first, done };
+  function snap() { return { dist: { ...dist }, first: Object.fromEntries(nodes.map(n => [n, first[n].slice()])), done: { ...done } }; }
+}
+
+// routing table lines for the source (Cisco format)
+function longIf(n) { return n.replace(/^G/, 'GigabitEthernet'); }
+function buildTable(source, res) {
+  const lines = [];
+  const myIf = (l, me) => (l.a === me ? l.ia : l.ib);
+  const nbrIp = (l, me) => (l.a === me ? ip(l.net, 2) : ip(l.net, 1));
+  const routes = [];
+  // LANs
+  for (const n in R) {
+    if (n === source || res.dist[n] === Infinity) continue;
+    routes.push({ pfx: R[n].lan, metric: res.dist[n] + lanCost(), hops: res.first[n] });
+  }
+  // transit links not connected to source
+  for (const l of LINKS) {
+    if (!l.up || l.a === source || l.b === source) continue;
+    const opts = [];
+    for (const end of [l.a, l.b]) if (res.dist[end] < Infinity) opts.push({ m: res.dist[end] + cost(l), hops: res.first[end] });
+    if (!opts.length) continue;
+    const best = Math.min(...opts.map(o => o.m));
+    const hops = []; opts.filter(o => o.m === best).forEach(o => o.hops.forEach(h => { if (!hops.some(x => x.hop === h.hop && x.link === h.link)) hops.push(h); }));
+    routes.push({ pfx: l.net + '/30', metric: best, hops });
+  }
+  const key = p => p.split(/[./]/).slice(0, 4).reduce((a, x) => a * 256 + +x, 0);
+  routes.sort((x, y) => key(x.pfx) - key(y.pfx));
+  const groups = {};
+  for (const r of routes) { const cl = r.pfx.startsWith('10.') ? '10.0.0.0/8' : r.pfx; (groups[cl] = groups[cl] || []).push(r); }
+  lines.push(`${source}# show ip route ospf`);
+  lines.push('Gateway of last resort is not set\n');
+  for (const g in groups) {
+    const items = groups[g];
+    if (g === '10.0.0.0/8') lines.push(`      10.0.0.0/8 is variably subnetted, ${countTen(source)} subnets, 2 masks`);
+    for (const r of items) {
+      const pad = g === '10.0.0.0/8' ? 'O        ' : 'O     ';
+      r.hops.forEach((h, i) => {
+        const via = `[110/${r.metric}] via ${nbrIp(h.link, source)}, 00:02:14, ${longIf(myIf(h.link, source))}`;
+        lines.push(i === 0 ? `${pad}${r.pfx} ${via}` : `${' '.repeat(pad.length + r.pfx.length + 1)}${via}`);
+      });
+    }
+  }
+  return lines.join('\n');
+}
+function countTen(source) {
+  // connected /30s count as subnets too, plus their /32 local routes (2 masks)
+  const up = LINKS.filter(l => l.up);
+  const connected = up.filter(l => l.a === source || l.b === source).length;
+  return up.length + connected;
+}
+
+// ---------- drawing ----------
+const svgNS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent, text) { const e = document.createElementNS(svgNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text !== undefined) e.textContent = text; if (parent) parent.appendChild(e); return e; }
+let spf = null, stepIdx = -1;
+function treeLinks(snapshot) {
+  // links used by confirmed routers' shortest paths (parent edges)
+  const set = new Set();
+  if (!snapshot) return set;
+  for (const n in R) {
+    if (!snapshot.done[n] || n === src) continue;
+    for (const l of LINKS) {
+      if (!l.up) continue;
+      const o = l.a === n ? l.b : l.b === n ? l.a : null;
+      if (o && snapshot.done[o] && snapshot.dist[o] + cost(l) === snapshot.dist[n]) set.add(l.id);
+    }
+  }
+  return set;
+}
+function draw() {
+  const svg = $('#topo'); svg.innerHTML = '';
+  const st = spf && stepIdx >= 0 ? spf.steps[stepIdx] : null;
+  const snap = st ? st.snapshot : null;
+  const tree = treeLinks(snap);
+  for (const l of LINKS) {
+    const [x1, y1] = R[l.a].pos, [x2, y2] = R[l.b].pos;
+    const cls = 'link' + (!l.up ? ' down' : '') + (tree.has(l.id) ? ' tree' : '') + (selLink === l.id ? ' selected' : '');
+    el('line', { x1, y1, x2, y2, class: cls }, svg);
+    const hit = el('line', { x1, y1, x2, y2, class: 'hit', tabindex: 0, role: 'button', 'aria-label': `Edit link ${l.a} to ${l.b}, cost ${cost(l)}` }, svg);
+    hit.addEventListener('click', () => selectLink(l.id));
+    hit.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectLink(l.id); } });
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    const g = el('g', { class: 'cost' + (selLink === l.id ? ' sel' : ''), transform: `translate(${mx},${my})` }, svg);
+    const txt = l.up ? String(cost(l)) : 'down';
+    el('rect', { x: -22, y: -13, width: 44, height: 26, rx: 6 }, g);
+    el('text', { x: 0, y: 5, 'text-anchor': 'middle' }, g, txt);
+    g.style.cursor = 'pointer'; g.addEventListener('click', () => selectLink(l.id));
+  }
+  for (const n in R) {
+    const [x, y] = R[n].pos;
+    let cls = 'router';
+    if (n === src) cls += ' src';
+    else if (snap && snap.done[n]) cls += ' done';
+    if (st && st.u === n && n !== src) cls += ' cur';
+    const g = el('g', { class: cls, transform: `translate(${x},${y})`, tabindex: 0, role: 'button', 'aria-label': `Make ${R[n].label} the SPF source` }, svg);
+    el('circle', { r: 30 }, g);
+    el('text', { x: 0, y: 5, class: 'rname', 'text-anchor': 'middle' }, g, n);
+    const below = y > 200;
+    el('text', { x: 0, y: below ? 50 : -40, class: 'lan', 'text-anchor': 'middle' }, g, `${R[n].label} · ${R[n].lan}`);
+    if (snap && snap.dist[n] < Infinity && n !== src) el('text', { x: 36, y: below ? -24 : 34, class: 'dist' }, g, `cost ${snap.dist[n]}`);
+    g.addEventListener('click', () => setSource(n));
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSource(n); } });
+    if (st && st.u === n && hasGSAP) gsap.fromTo(g.querySelector('circle'), { attr: { r: 38 } }, { attr: { r: 30 }, duration: .45, ease: 'back.out(2)' });
+  }
+}
+function selectLink(id) {
+  selLink = id; const l = LINKS.find(x => x.id === id);
+  const p = $('#linkpanel');
+  p.innerHTML = `<div style="font-weight:600;margin-bottom:6px">Link ${l.a} to ${l.b} · ${l.net}/30</div>
+    <div class="row" style="margin-top:0">
+      <label>Bandwidth<select id="lbw">${Object.keys(BW).map(k => `<option value="${k}" ${+k === l.bw ? 'selected' : ''}>${BW[k]}</option>`).join('')}</select></label>
+      <label>Manual cost (ip ospf cost)<input type="number" id="lcost" min="1" max="65535" placeholder="auto" value="${l.manual ?? ''}" style="width:120px"></label>
+      <label class="switch" style="flex-direction:row"><input type="checkbox" id="lup" ${l.up ? '' : 'checked'}> Link down</label>
+    </div>
+    <p style="margin:8px 0 0;color:var(--ink-2)">Current cost: <b>${cost(l)}</b>${l.manual != null ? ' (manual)' : ` (${ref()} Mbps reference ÷ ${l.bw} Mbps${ref() / l.bw < 1 ? ', rounded up to the minimum of 1' : ''})`}.</p>`;
+  $('#lbw').addEventListener('change', e => { l.bw = +e.target.value; changed(); });
+  $('#lcost').addEventListener('change', e => { const v = parseInt(e.target.value, 10); l.manual = (v >= 1 && v <= 65535) ? v : null; changed(); });
+  $('#lup').addEventListener('change', e => { l.up = !e.target.checked; changed(); });
+  draw();
+}
+function changed() { const id = selLink; restart(); if (id) selectLink(id); }
+function setSource(n) { src = n; $('#srcName').textContent = n; restart(); }
+
+// ---------- stepping ----------
+function restart() {
+  spf = runSPF(src); stepIdx = -1;
+  $('#explain').innerHTML = `${R[src].label} starts with a cost of 0 to itself and infinity to everyone else. Press Next step.`;
+  $('#rt').textContent = 'Run SPF to completion to build the table.';
+  renderTable(); draw();
+}
+function renderTable() {
+  const st = stepIdx >= 0 ? spf.steps[stepIdx] : null;
+  const snap = st ? st.snapshot : { dist: Object.fromEntries(Object.keys(R).map(n => [n, n === src ? 0 : Infinity])), first: Object.fromEntries(Object.keys(R).map(n => [n, []])), done: {} };
+  let h = '<tr><th>Router</th><th>Cost</th><th>First hop</th><th>Status</th></tr>';
+  for (const n of Object.keys(R)) {
+    const d = snap.dist[n];
+    const fh = n === src ? 'itself' : (snap.first[n] || []).map(f => f.hop).join(' and ') || '-';
+    const cls = (snap.done[n] ? 'confirmed' : '') + (st && st.u === n ? ' current' : '');
+    h += `<tr class="${cls}"><td>${n}</td><td>${d === Infinity ? '∞' : d}</td><td>${fh}</td><td>${snap.done[n] ? 'confirmed' : d === Infinity ? 'unknown' : 'tentative'}</td></tr>`;
+  }
+  $('#spf').innerHTML = h;
+}
+function describe(st) {
+  if (st.type === 'unreach') return 'The remaining routers cannot be reached from here: no working link leads to them. Their networks will be missing from the routing table.';
+  let t = st.u === src ? `<b>${st.u}</b> confirms itself with cost 0 and looks at its neighbors.` : `<b>${st.u}</b> has the lowest tentative cost (${st.d}), so its best path is now confirmed. ${st.u} then checks its own neighbors.`;
+  const bits = st.upd.map(u => u.how === 'better' ? `${u.v} can be reached for ${u.nd}, which is better than before, so it is updated` : u.how === 'equal' ? `${u.v} can also be reached for ${u.nd}, a tie, so OSPF keeps both paths (equal-cost load sharing)` : `${u.v} would cost ${u.nd}, worse than the ${u.old} already known, so nothing changes`);
+  if (bits.length) t += ' ' + bits.map(b => b[0].toUpperCase() + b.slice(1)).join('. ') + '.';
+  else t += ' It has no unconfirmed neighbors left.';
+  return t;
+}
+function step() {
+  if (stepIdx >= spf.steps.length - 1) return;
+  stepIdx++;
+  const st = spf.steps[stepIdx];
+  $('#explain').innerHTML = describe(st);
+  renderTable(); draw();
+  if (stepIdx === spf.steps.length - 1) finishSPF();
+}
+function finishSPF() {
+  $('#rt').textContent = buildTable(src, spf);
+  $('#explain').innerHTML += ' <b>SPF complete.</b> The green links form the shortest path tree from ' + src + '.';
+}
+$('#stepBtn').addEventListener('click', step);
+$('#allBtn').addEventListener('click', () => { while (stepIdx < spf.steps.length - 1) { stepIdx++; } const st = spf.steps[stepIdx]; $('#explain').innerHTML = describe(st); renderTable(); draw(); finishSPF(); });
+$('#restartBtn').addEventListener('click', restart);
+$('#ref1000').addEventListener('change', changed);
+$('#resetTopo').addEventListener('click', () => { resetLinks(); selLink = null; $('#linkpanel').textContent = 'Click a link to edit it.'; restart(); });
+
+// ---------- adjacency ----------
+const STATES = ['Down', 'Init', '2-Way', 'ExStart', 'Exchange', 'Loading', 'Full'];
+let adjTimer = null;
+function adjDraw(stateIdx, stuck) {
+  $('#states').innerHTML = STATES.map((s, i) => `<span class="${i <= stateIdx ? (stuck && i === stateIdx ? 'stuck' : 'on') : ''}">${s}</span>`).join('');
+}
+function adjSvgInit() {
+  const svg = $('#adjSvg'); svg.innerHTML = '';
+  el('line', { x1: 110, y1: 110, x2: 490, y2: 110, stroke: '#94A3B8', 'stroke-width': 4, id: 'adjLine' }, svg);
+  for (const [x, n, rid, ipa] of [[90, 'HQ', '1.1.1.1', '10.0.0.13/30'], [510, 'DOR', '4.4.4.4', $('#mMask').checked ? '10.0.0.14/29' : '10.0.0.14/30']]) {
+    const g = el('g', { transform: `translate(${x},110)` }, svg);
+    el('circle', { r: 34, fill: '#fff', stroke: '#16181D', 'stroke-width': 2.5 }, g);
+    el('text', { y: 5, 'text-anchor': 'middle', 'font-weight': 700, 'font-size': 15 }, g, n);
+    el('text', { y: 56, 'text-anchor': 'middle', 'font-size': 12, fill: '#475569' }, g, 'RID ' + rid);
+    el('text', { y: 72, 'text-anchor': 'middle', 'font-size': 11, fill: '#64748B', 'font-family': 'monospace' }, g, ipa);
+  }
+  el('text', { x: 300, y: 30, 'text-anchor': 'middle', 'font-size': 13, fill: '#475569', id: 'pktLabel' }, svg, '');
+  el('g', { id: 'pkts' }, svg);
+}
+function sendPkt(fromLeft, label, color) {
+  const g = $('#pkts'); const x1 = fromLeft ? 130 : 470, x2 = fromLeft ? 470 : 130;
+  const p = el('g', { transform: `translate(${x1},110)` }, g);
+  el('rect', { x: -34, y: -14, width: 68, height: 28, rx: 6, fill: color, stroke: '#fff', 'stroke-width': 2 }, p);
+  el('text', { y: 5, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 700, fill: '#fff' }, p, label);
+  if (hasGSAP) gsap.fromTo(p, { attr: { transform: `translate(${x1},110)` } }, { attr: { transform: `translate(${x2},110)` }, duration: 1.1, ease: 'power1.inOut', onComplete: () => p.remove() });
+  else setTimeout(() => p.remove(), 900);
+}
+function adjNbr(state) {
+  let out = 'HQ# show ip ospf neighbor\n';
+  if (state) out += '\nNeighbor ID     Pri   State           Dead Time   Address         Interface\n' + `4.4.4.4           1   ${state.padEnd(16)}00:00:3${Math.floor(Math.random() * 9)}    10.0.0.14       GigabitEthernet0/0/2`;
+  $('#nbr').textContent = out;
+}
+function adjRun() {
+  clearTimeout(adjTimer); adjSvgInit(); adjDraw(0, false); adjNbr(null);
+  const area = $('#mArea').checked, hello = $('#mHello').checked, mask = $('#mMask').checked, passive = $('#mPassive').checked;
+  const seq = [];
+  if (passive) {
+    seq.push({ s: 0, a: () => sendPkt(true, 'Hello', '#2563EB'), t: 'HQ sends a Hello every 10 seconds to 224.0.0.5. Doral\'s interface is passive, so Doral advertises the network but never sends or answers Hellos.' });
+    seq.push({ s: 0, a: () => sendPkt(true, 'Hello', '#2563EB'), t: 'Without Hellos from Doral, HQ never discovers a neighbor. The state stays Down. Use passive-interface only on LAN ports with no routers behind them.', stuck: true });
+  } else if (area || hello || mask) {
+    const why = area ? 'the area ID in the Hello (area 1) does not match HQ\'s area 0' : hello ? 'the Hello and dead timers (30/120 seconds) do not match HQ\'s 10/40 seconds' : 'the subnet mask in the Hello (/29) does not match HQ\'s /30';
+    seq.push({ s: 0, a: () => { sendPkt(true, 'Hello', '#2563EB'); sendPkt(false, 'Hello', '#7C3AED'); }, t: 'Both routers send Hellos to 224.0.0.5.' });
+    seq.push({ s: 0, a: () => {}, t: `Each router checks the received Hello and discards it because ${why}. A neighbor is never created, so the state stays Down. On a real router, debug ip ospf adj or the log shows the mismatch, and show ip ospf interface displays the area, timers, and mask to compare.`, stuck: true });
+  } else {
+    seq.push({ s: 0, a: () => sendPkt(true, 'Hello', '#2563EB'), t: 'Down: the link just came up. HQ sends a Hello to 224.0.0.5 listing the neighbors it has seen (none yet).' });
+    seq.push({ s: 1, a: () => sendPkt(false, 'Hello', '#7C3AED'), t: 'Init: Doral received HQ\'s Hello. Area, timers, and mask all match, so Doral records 1.1.1.1 and replies with a Hello that lists it.' });
+    seq.push({ s: 2, a: () => sendPkt(true, 'Hello', '#2563EB'), t: '2-Way: each router sees its own router ID in the other\'s Hello. On Ethernet, this is when the DR and BDR are elected (here Doral, the higher router ID, becomes DR).' });
+    seq.push({ s: 3, a: () => sendPkt(false, 'DBD', '#B45309'), t: 'ExStart: the routers decide who leads the database exchange. The higher router ID (4.4.4.4) becomes master.' });
+    seq.push({ s: 4, a: () => { sendPkt(true, 'DBD', '#B45309'); sendPkt(false, 'DBD', '#B45309'); }, t: 'Exchange: they swap database descriptions (DBD), a summary of every link-state advertisement (LSA) each one knows.' });
+    seq.push({ s: 5, a: () => { sendPkt(true, 'LSR', '#0F766E'); setTimeout(() => sendPkt(false, 'LSU', '#15803D'), 500); }, t: 'Loading: each router requests (LSR) the LSAs it is missing and receives them in link-state updates (LSU).' });
+    seq.push({ s: 6, a: () => { const l = $('#adjLine'); l.setAttribute('stroke', '#15803D'); }, t: 'Full: both link-state databases are identical. Each router now runs SPF and installs O routes. Hellos keep flowing every 10 seconds; if none arrive for 40 seconds (dead interval), the neighbor is removed.', nbr: 'FULL/DR' });
+  }
+  let i = 0;
+  const tick = () => {
+    const s = seq[i]; s.a(); adjDraw(s.s, !!s.stuck); $('#adjExplain').innerHTML = s.t;
+    if (s.s >= 1 && !s.stuck) adjNbr(s.nbr || (s.s === 1 ? 'INIT/DROTHER' : s.s === 2 ? '2WAY/DR' : STATES[s.s].toUpperCase() + '/DR'));
+    i++; if (i < seq.length) adjTimer = setTimeout(tick, 1500);
+  };
+  tick();
+}
+$('#adjGo').addEventListener('click', adjRun);
+$('#adjReset').addEventListener('click', () => { clearTimeout(adjTimer); ['mArea', 'mHello', 'mMask', 'mPassive'].forEach(id => $('#' + id).checked = false); adjSvgInit(); adjDraw(-1); adjNbr(null); $('#adjExplain').textContent = 'HQ (router ID 1.1.1.1) and the new Doral router (router ID 4.4.4.4) are about to be connected on 10.0.0.12/30.'; });
+['mArea', 'mHello', 'mMask', 'mPassive'].forEach(id => $('#' + id).addEventListener('change', () => { clearTimeout(adjTimer); adjSvgInit(); adjDraw(-1); adjNbr(null); }));
+
+function showTab(which) {
+  $('#tabSpf').setAttribute('aria-selected', which === 'spf'); $('#tabAdj').setAttribute('aria-selected', which === 'adj');
+  $('#paneSpf').hidden = which !== 'spf'; $('#paneAdj').hidden = which !== 'adj';
+}
+$('#tabSpf').addEventListener('click', () => showTab('spf'));
+$('#tabAdj').addEventListener('click', () => showTab('adj'));
+
+resetLinks(); restart(); adjSvgInit(); adjDraw(-1); adjNbr(null);
+</script>
+</body>
+</html>
