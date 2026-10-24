@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPv4 Binary Explorer</title>
+<meta name="description" content="CIT-283 Week 1 interactive: flip bits, read masks, and find the network and host parts of IPv4 addresses.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+
+  .octets{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:12px}
+  .octet{border:1px solid var(--line);border-radius:10px;padding:10px 10px 8px;background:#FBFBFC}
+  .octet-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:13px;color:var(--muted)}
+  .octet-head .dec{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--ink)}
+  .bits{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+  .bit{font-family:var(--mono);font-size:16px;font-weight:600;height:40px;border-radius:7px;border:2px solid #CBD2DA;background:#fff;color:var(--ink-2);cursor:pointer;padding:0;transition:background .15s,border-color .15s,color .15s}
+  .bit.on{color:#fff}
+  .bit.net{border-color:var(--net-blue)} .bit.net.on{background:var(--net-blue)}
+  .bit.host{border-color:var(--net-amber)} .bit.host.on{background:var(--net-amber)}
+  .weights{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-top:4px;font-size:11px;color:var(--muted);text-align:center;font-family:var(--mono)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin-top:10px}
+  .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:6px}
+  .prefix-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px}
+  .prefix-row input[type=range]{flex:1;min-width:160px;accent-color:var(--au-red)}
+  .dotted{font-family:var(--mono);font-size:clamp(20px,4vw,28px);font-weight:600;margin-top:6px;word-break:break-all}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:520px){.form-row{grid-template-columns:1fr}}
+  label.f{display:block;font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:4px}
+  label.f input{width:100%;margin-top:4px}
+  .results{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:14px}
+  .res{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#FBFBFC}
+  .res .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .res .v{font-family:var(--mono);font-weight:600;font-size:15px;overflow-wrap:break-word}
+  .binrows{font-family:var(--mono);font-size:13px;margin-top:14px;min-width:420px}
+  .binrows td{padding:4px 8px;white-space:nowrap}
+  .binrows td:first-child{color:var(--muted);font-family:var(--sans);font-size:13px}
+  .nb{color:var(--net-blue);font-weight:600} .hb{color:var(--net-amber);font-weight:600}
+  .q{display:grid;grid-template-columns:1fr 160px 28px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+  @media(max-width:520px){.q{grid-template-columns:1fr 120px 24px}}
+  .q .prompt{font-size:15px}
+  .q input{width:100%;font-family:var(--mono)}
+  .q .mark{font-weight:700;text-align:center}
+  .q .fix{grid-column:1/-1;font-size:13px;color:var(--bad);display:none}
+  .gloss dt{font-weight:600;margin-top:8px}
+  .gloss dd{margin:2px 0 0 0;color:var(--ink-2);font-size:14px}
+  .stack{display:grid;gap:16px}
+  .stack>*,.grid>*{min-width:0}
+
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 1 · Interactive A</div>
+  </div>
+</header>
+
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 1 · Explorer</span>
+    <h1>IPv4 binary explorer</h1>
+    <p class="lede">Every IPv4 address is 32 ones and zeros. Flip the bits, move the prefix, and watch how a computer decides which part of an address names the network and which part names the device.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>In <em>Flip the bits</em>, click any bit to turn it on (1) or off (0). The decimal value of each octet updates as you click.</li>
+      <li>Move the prefix slider. Blue bits belong to the network part, amber bits belong to the host part.</li>
+      <li>In <em>Analyze an address</em>, type any address and a mask such as 255.255.255.0 or /24. The two panels stay in sync.</li>
+      <li>Read the results: network address, first and last usable host, broadcast address, and how many devices fit.</li>
+      <li>Finish with the practice set at the bottom. Aim for 8 out of 8 before you start Assignment 1.2.</li>
+    </ol>
+  </details>
+
+  <div class="stack">
+    <section class="card" aria-labelledby="flipH">
+      <h2 id="flipH">Flip the bits</h2>
+      <p style="margin:0;color:var(--ink-2)">Each octet has 8 bits. The bit values are 128, 64, 32, 16, 8, 4, 2 and 1. Add the values of the bits that are on to get the decimal number.</p>
+      <div class="dotted" id="dotted" aria-live="polite">192.168.1.10</div>
+      <div class="octets" id="octets"></div>
+      <div class="prefix-row">
+        <label for="prefix" style="font-weight:600">Prefix length</label>
+        <input type="range" id="prefix" min="0" max="32" value="24" aria-describedby="prefixOut">
+        <span class="pill mono" id="prefixOut">/24 = 255.255.255.0</span>
+      </div>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--net-blue)"></span>Network bits (the mask has 1s here)</span>
+        <span><span class="sw" style="background:var(--net-amber)"></span>Host bits (the mask has 0s here)</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn" id="clearHost">Set host bits to 0 (network address)</button>
+        <button class="btn" id="fillHost">Set host bits to 1 (broadcast)</button>
+        <button class="btn" id="randomIp">Random private address</button>
+      </div>
+    </section>
+
+    <div class="grid two">
+      <section class="card" aria-labelledby="anH">
+        <h2 id="anH">Analyze an address</h2>
+        <div class="form-row">
+          <label class="f">IPv4 address
+            <input type="text" id="ipIn" value="192.168.1.10" inputmode="decimal" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="f">Subnet mask or prefix
+            <input type="text" id="maskIn" value="255.255.255.0" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+        <div id="anMsg"></div>
+        <div class="results" id="results"></div>
+        <div class="scroll-x"><table class="binrows" id="binrows" aria-label="Binary view"></table></div>
+        <p style="font-size:14px;color:var(--ink-2);margin:10px 0 0">The network address is the result of a bitwise AND: wherever the mask has a 1, the address bit is kept; wherever the mask has a 0, the result is 0.</p>
+      </section>
+      <aside class="card">
+        <h2>Key ideas</h2>
+        <dl class="gloss">
+          <dt>Bit and octet</dt><dd>A bit is a single 1 or 0. An octet is a group of 8 bits, written as one decimal number from 0 to 255.</dd>
+          <dt>Subnet mask</dt><dd>A 32-bit pattern of 1s followed by 0s. The 1s mark the network part of the address.</dd>
+          <dt>Prefix</dt><dd>A short way to write the mask: /24 means the first 24 bits are 1s (255.255.255.0).</dd>
+          <dt>Network address</dt><dd>All host bits set to 0. It names the network itself, so no device can use it.</dd>
+          <dt>Broadcast address</dt><dd>All host bits set to 1. A packet sent here reaches every device on the network.</dd>
+          <dt>Default gateway</dt><dd>The router address a device uses to reach any other network. It must be a usable host address on the device's own network.</dd>
+          <dt>Private address</dt><dd>Ranges reserved for inside networks (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16). Routers on the internet do not forward them.</dd>
+        </dl>
+      </aside>
+    </div>
+
+    <section class="card" aria-labelledby="prH">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <h2 id="prH" style="margin:0">Practice: 8 conversions</h2>
+        <div class="score" id="practiceScore" aria-live="polite"></div>
+      </div>
+      <p style="color:var(--ink-2);margin:6px 0 4px">Convert each value. Binary answers need all 8 digits (for example 00001010). Use the bit panel above if you need help.</p>
+      <div id="questions"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn primary" id="checkBtn">Check answers</button>
+        <button class="btn" id="newSet">New set</button>
+      </div>
+      <div id="practiceFb"></div>
+    </section>
+  </div>
+</main>
+<script>
+/* IPv4 helper library (shared, tested) */
+const IP = {
+  parse(s){
+    if(typeof s!=='string') return null;
+    const m=s.trim().match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if(!m) return null;
+    const o=m.slice(1).map(Number);
+    if(o.some(x=>x>255)) return null;
+    return (((o[0]<<24)>>>0)+(o[1]<<16)+(o[2]<<8)+o[3])>>>0;
+  },
+  str(n){ n=n>>>0; return [n>>>24,(n>>>16)&255,(n>>>8)&255,n&255].join('.'); },
+  octets(n){ n=n>>>0; return [n>>>24,(n>>>16)&255,(n>>>8)&255,n&255]; },
+  mask(p){ return p<=0?0:(0xFFFFFFFF<<(32-p))>>>0; },
+  prefixFromMask(m){
+    m=m>>>0; const inv=(~m)>>>0;
+    if(((inv+1)&inv)!==0 && inv!==0xFFFFFFFF) return null;
+    let p=0; for(let i=31;i>=0;i--){ if((m>>>i)&1) p++; else break; }
+    return (IP.mask(p)===m)?p:null;
+  },
+  parseMask(s){
+    if(typeof s!=='string') return null;
+    s=s.trim();
+    let m=s.match(/^\/?(\d{1,2})$/);
+    if(m){ const p=Number(m[1]); return (p>=0&&p<=32)?p:null; }
+    const n=IP.parse(s); if(n===null) return null;
+    return IP.prefixFromMask(n);
+  },
+  network(ip,p){ return (ip & IP.mask(p))>>>0; },
+  broadcast(ip,p){ return (IP.network(ip,p) | ((~IP.mask(p))>>>0))>>>0; },
+  size(p){ return 2**(32-p); },
+  hosts(p){ if(p===32) return 1; if(p===31) return 2; return 2**(32-p)-2; },
+  first(ip,p){ const n=IP.network(ip,p); return p>=31? n : (n+1)>>>0; },
+  last(ip,p){ const b=IP.broadcast(ip,p); return p>=31? b : (b-1)>>>0; },
+  bin(n){ return (n>>>0).toString(2).padStart(32,'0'); },
+  bin8(o){ return o.toString(2).padStart(8,'0'); },
+  dotBin(n){ return IP.octets(n).map(IP.bin8).join('.'); },
+  cls(ip){ const a=ip>>>24;
+    if(a===0) return 'Reserved (0.x.x.x)';
+    if(a===127) return 'Loopback range';
+    if(a<=126) return 'A'; if(a<=191) return 'B'; if(a<=223) return 'C'; if(a<=239) return 'D (multicast)'; return 'E (experimental)'; },
+  kind(ip){
+    const inR=(net,p)=>IP.network(ip,p)===IP.parse(net);
+    if(inR('10.0.0.0',8)||inR('172.16.0.0',12)||inR('192.168.0.0',16)) return {label:'Private (RFC 1918)',private:true};
+    if(inR('127.0.0.0',8)) return {label:'Loopback (this device only)',private:false};
+    if(inR('169.254.0.0',16)) return {label:'Link-local (APIPA, no DHCP answer)',private:false};
+    if(inR('100.64.0.0',10)) return {label:'Shared address space (carrier NAT)',private:false};
+    if(inR('224.0.0.0',4)) return {label:'Multicast',private:false};
+    if(inR('240.0.0.0',4)) return {label:'Reserved',private:false};
+    if(inR('0.0.0.0',8)) return {label:'Reserved ("this network")',private:false};
+    return {label:'Public (routable on the internet)',private:false};
+  },
+  hostBitsFor(n){ let h=2; while(2**h-2<n) h++; return h; },
+  prefixFor(n){ return 32-IP.hostBitsFor(n); },
+  /* interesting octet index (0..3) and block size for the block-size method */
+  blockInfo(p){
+    const mo=IP.octets(IP.mask(p));
+    let idx=mo.findIndex(x=>x<255); if(idx<0) idx=3;
+    return {idx, maskOctet:mo[idx], block:256-mo[idx]};
+  },
+  subnets(base,baseP,newP,limit){
+    const out=[]; const net=IP.network(base,baseP); const count=2**(newP-baseP); const sz=IP.size(newP);
+    const n=Math.min(count, limit||count);
+    for(let i=0;i<n;i++){ const s=(net+i*sz)>>>0; out.push({i, network:s, first:IP.first(s,newP), last:IP.last(s,newP), broadcast:IP.broadcast(s,newP)}); }
+    return {count, list:out};
+  },
+  vlsm(base,baseP,reqs){
+    const start=IP.network(base,baseP), total=IP.size(baseP), end=start+total;
+    const sorted=reqs.map((r,i)=>({...r,order:i})).sort((a,b)=>b.hosts-a.hosts||a.order-b.order);
+    let cur=start; const out=[];
+    for(const r of sorted){
+      const p=IP.prefixFor(r.hosts), sz=IP.size(p);
+      if(cur%sz!==0) cur=Math.ceil(cur/sz)*sz;
+      if(cur+sz>end) return {ok:false, error:`${r.name} needs a /${p} (${sz} addresses) but only ${Math.max(0,end-cur)} addresses are left.`, list:out};
+      out.push({...r, prefix:p, size:sz, network:cur>>>0, first:IP.first(cur,p), last:IP.last(cur,p), broadcast:IP.broadcast(cur,p), usable:IP.hosts(p), wasted:IP.hosts(p)-r.hosts});
+      cur+=sz;
+    }
+    return {ok:true, list:out, used:cur-start, total, free:end-cur, nextFree:cur>>>0};
+  }
+};
+if(typeof module!=='undefined') module.exports=IP;
+
+const hasGSAP = typeof window.gsap !== 'undefined';
+const $=id=>document.getElementById(id);
+let state={ip:IP.parse('192.168.1.10'), prefix:24};
+const W=[128,64,32,16,8,4,2,1];
+
+function buildBits(){
+  const wrap=$('octets'); wrap.innerHTML='';
+  for(let o=0;o<4;o++){
+    const box=document.createElement('div'); box.className='octet';
+    box.innerHTML=`<div class="octet-head"><span>Octet ${o+1}</span><span class="dec" id="dec${o}">0</span></div><div class="bits" id="bits${o}"></div><div class="weights">${W.map(w=>`<span>${w}</span>`).join('')}</div>`;
+    wrap.appendChild(box);
+    const bits=box.querySelector('.bits');
+    for(let b=0;b<8;b++){
+      const idx=o*8+b; const btn=document.createElement('button');
+      btn.className='bit'; btn.dataset.idx=idx; btn.type='button';
+      btn.addEventListener('click',()=>{ state.ip=(state.ip ^ (1<<(31-idx)))>>>0; render('bits'); if(hasGSAP) gsap.fromTo(btn,{scale:.85},{scale:1,duration:.25,ease:'back.out(3)'}); });
+      bits.appendChild(btn);
+    }
+  }
+}
+function render(src){
+  const {ip,prefix}=state;
+  const bin=IP.bin(ip);
+  document.querySelectorAll('.bit').forEach(btn=>{
+    const i=+btn.dataset.idx, on=bin[i]==='1', net=i<prefix;
+    btn.textContent=on?'1':'0';
+    btn.classList.toggle('on',on); btn.classList.toggle('net',net); btn.classList.toggle('host',!net);
+    btn.setAttribute('aria-label',`Octet ${Math.floor(i/8)+1}, bit value ${W[i%8]}, ${on?'on':'off'}, ${net?'network':'host'} bit`);
+    btn.setAttribute('aria-pressed',on?'true':'false');
+  });
+  IP.octets(ip).forEach((v,o)=>$('dec'+o).textContent=v);
+  $('dotted').textContent=IP.str(ip);
+  $('prefix').value=prefix;
+  $('prefixOut').textContent=`/${prefix} = ${IP.str(IP.mask(prefix))}`;
+  if(src!=='ipIn') $('ipIn').value=IP.str(ip);
+  if(src!=='maskIn') $('maskIn').value=IP.str(IP.mask(prefix));
+  analyze();
+}
+function colorBits(bits,prefix){
+  let out=''; for(let i=0;i<32;i++){ if(i>0&&i%8===0) out+='.'; out+=`<span class="${i<prefix?'nb':'hb'}">${bits[i]}</span>`; } return out;
+}
+function analyze(){
+  const {ip,prefix}=state;
+  const net=IP.network(ip,prefix), bc=IP.broadcast(ip,prefix), kind=IP.kind(ip);
+  let note='';
+  if(ip===net && prefix<31) note='<div class="feedback info">This is the network address itself. A device cannot use it.</div>';
+  else if(ip===bc && prefix<31) note='<div class="feedback info">This is the broadcast address. A device cannot use it.</div>';
+  else if(prefix===31) note='<div class="feedback info">A /31 has only two addresses. Routers can use them on a point-to-point link (RFC 3021), so both count as usable.</div>';
+  else if(prefix===32) note='<div class="feedback info">A /32 identifies one single address (a host route).</div>';
+  $('anMsg').innerHTML=note;
+  const items=[
+    ['Network address',IP.str(net)],
+    ['First usable host',IP.str(IP.first(ip,prefix))],
+    ['Last usable host',IP.str(IP.last(ip,prefix))],
+    ['Broadcast address',prefix>=31?'none':IP.str(bc)],
+    ['Usable hosts',IP.hosts(prefix).toLocaleString('en-US')],
+    ['Total addresses',IP.size(prefix).toLocaleString('en-US')],
+    ['Mask',`${IP.str(IP.mask(prefix))} (/${prefix})`],
+    ['Address type',kind.label],
+    ['Historical class',IP.cls(ip)+' (classes are no longer used for routing)'],
+  ];
+  $('results').innerHTML=items.map(([k,v])=>`<div class="res"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  const m=IP.mask(prefix);
+  $('binrows').innerHTML=`<tr><td>Address</td><td>${colorBits(IP.bin(ip),prefix)}</td><td>${IP.str(ip)}</td></tr>
+  <tr><td>Mask</td><td>${colorBits(IP.bin(m),prefix)}</td><td>${IP.str(m)}</td></tr>
+  <tr><td>AND result</td><td>${colorBits(IP.bin(net),prefix)}</td><td><b>${IP.str(net)}</b></td></tr>`;
+}
+$('prefix').addEventListener('input',e=>{state.prefix=+e.target.value; render('slider');});
+$('ipIn').addEventListener('input',e=>{const v=IP.parse(e.target.value); if(v===null){ $('anMsg').innerHTML='<div class="feedback bad">Type four numbers from 0 to 255 separated by dots, for example 10.0.5.20.</div>'; return;} state.ip=v; render('ipIn');});
+$('maskIn').addEventListener('input',e=>{const p=IP.parseMask(e.target.value); if(p===null){ $('anMsg').innerHTML='<div class="feedback bad">A mask must be continuous 1s followed by 0s, for example 255.255.255.0, 255.255.240.0 or /20.</div>'; return;} state.prefix=p; render('maskIn');});
+$('clearHost').addEventListener('click',()=>{state.ip=IP.network(state.ip,state.prefix); render();});
+$('fillHost').addEventListener('click',()=>{state.ip=IP.broadcast(state.ip,state.prefix); render();});
+$('randomIp').addEventListener('click',()=>{
+  const r=n=>Math.floor(Math.random()*n);
+  const opts=[()=>[10,r(256),r(256),1+r(254)],()=>[172,16+r(16),r(256),1+r(254)],()=>[192,168,r(256),1+r(254)]];
+  state.ip=IP.parse(opts[r(3)]().join('.')); state.prefix=[8,16,20,24,26,27,28][r(7)]; render();
+});
+
+/* practice */
+let qs=[];
+function newSet(){
+  const r=n=>Math.floor(Math.random()*n);
+  const pool=[0,1,10,15,32,64,100,127,128,168,172,192,200,224,240,248,252,254,255];
+  const pick=()=>{ return Math.random()<.6? pool[r(pool.length)] : r(256); };
+  qs=[]; const used=new Set();
+  while(qs.length<8){
+    const v=pick(); const type=qs.length<4?'d2b':'b2d';
+    if(used.has(type+v)) continue; used.add(type+v);
+    qs.push({type,v});
+  }
+  qs.sort(()=>Math.random()-.5);
+  $('questions').innerHTML=qs.map((q,i)=>`<div class="q"><div class="prompt">${i+1}. ${q.type==='d2b'?`Write <b class="mono">${q.v}</b> in binary`:`Write <b class="mono">${IP.bin8(q.v)}</b> in decimal`}</div><input type="text" id="qa${i}" aria-label="Answer ${i+1}" autocomplete="off" spellcheck="false" inputmode="numeric"><span class="mark" id="qm${i}" aria-hidden="true"></span><div class="fix" id="qf${i}"></div></div>`).join('');
+  $('practiceScore').textContent=''; $('practiceFb').innerHTML='';
+}
+function explain(v){ const parts=W.filter(w=>v&w); return parts.length?parts.join(' + ')+' = '+v:'no bits on = 0'; }
+function check(){
+  let ok=0;
+  qs.forEach((q,i)=>{
+    const a=$('qa'+i).value.trim().replace(/\s/g,'');
+    let right;
+    if(q.type==='d2b') right=/^[01]{8}$/.test(a) && parseInt(a,2)===q.v;
+    else right=/^\d{1,3}$/.test(a) && Number(a)===q.v;
+    const mk=$('qm'+i), fx=$('qf'+i);
+    mk.textContent=right?'✓':'✗'; mk.style.color=right?'var(--ok)':'var(--bad)';
+    fx.style.display=right?'none':'block';
+    fx.textContent=right?'':`Answer: ${q.type==='d2b'?IP.bin8(q.v):q.v}. Bits on: ${explain(q.v)}.`;
+    if(right) ok++;
+  });
+  $('practiceScore').innerHTML=`<span class="big">${ok}</span>/ 8`;
+  $('practiceFb').innerHTML= ok===8? '<div class="feedback ok">All correct. You are ready for Part A of Assignment 1.2.</div>' : `<div class="feedback bad">${8-ok} to review. Read the explanation under each red answer, then press New set and try again.</div>`;
+  if(hasGSAP) gsap.fromTo('#practiceScore',{scale:.8,opacity:.4},{scale:1,opacity:1,duration:.35});
+}
+$('checkBtn').addEventListener('click',check);
+$('newSet').addEventListener('click',newSet);
+buildBits(); render(); newSet();
+</script>
+
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+
+</body>
+</html>

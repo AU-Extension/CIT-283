@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subnetting Speed Drill</title>
+<meta name="description" content="CIT-283 Week 2 interactive: timed rounds of subnetting questions with worked block size solutions.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  [hidden]{display:none!important}
+  .grid>*{min-width:0}
+  .levels{display:grid;gap:10px;grid-template-columns:1fr}
+  @media(min-width:760px){.levels{grid-template-columns:repeat(3,1fr)}}
+  .level{font:inherit;text-align:left;border:2px solid var(--line);background:#fff;border-radius:12px;padding:14px 16px;cursor:pointer;color:var(--ink)}
+  .level b{display:block;font-size:16px;margin-bottom:2px}
+  .level span{font-size:14px;color:var(--ink-2)}
+  .level[aria-pressed=true]{border-color:var(--au-red);background:var(--au-red-soft)}
+  .hud{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:14px;color:var(--ink-2);margin-bottom:12px}
+  .hud b{color:var(--ink);font-family:var(--mono)}
+  .dots{display:flex;gap:6px;margin-left:auto}
+  .dot{width:12px;height:12px;border-radius:50%;background:#E3E6EB}
+  .dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)} .dot.cur{outline:2px solid var(--ink);outline-offset:2px}
+  .qtype{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--au-red-dark)}
+  .prompt{font-size:clamp(18px,2.6vw,22px);font-weight:600;margin:6px 0 14px;line-height:1.35}
+  .prompt .mono{background:#EEF1F5;padding:1px 6px;border-radius:6px}
+  .answer-row{display:flex;gap:10px;flex-wrap:wrap}
+  .answer-row input{flex:1 1 220px;font-family:var(--mono);font-size:18px;padding:10px 12px}
+  .work{margin:10px 0 0;padding-left:20px} .work li{margin-bottom:4px}
+  .streak[hidden]{display:none}
+  .streak{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--warn)}
+  .final-big{font-size:56px;font-weight:700;color:var(--au-red-dark);line-height:1}
+  .hint{font-size:14px;color:#1E3A8A;background:#EEF4FF;border:1px solid #C7D7FE;border-radius:10px;padding:10px 12px;margin-top:10px}
+  kbd{background:#EEF1F5;border:1px solid #D5DAE1;border-bottom-width:2px;border-radius:5px;padding:0 5px;font-size:12px}
+
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 2 · Interactive B</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 2 · Challenge</span>
+    <h1>Subnetting speed drill</h1>
+    <p class="lede">Ten questions per round: network and broadcast addresses, host ranges, host counts, masks and subnet counts. Every answer comes with a worked solution, so a wrong answer still teaches you the method.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol><li>Pick a level. Level 1 keeps all the math in the last octet, which is where most beginners should start.</li><li>Press Start round. Type each answer and press Enter. IP answers need all four octets.</li><li>Use Hint if you are stuck, or Show me to see the full solution (it counts as a miss).</li><li>Read the worked solution after every question, even the ones you got right.</li><li>Aim for 9 or 10 on Level 1 before moving to Level 2. Your best score per level is remembered on this device.</li></ol>
+  </details>
+
+  
+<section class="card" id="setup">
+  <h2>Choose a level</h2>
+  <div class="levels" role="group" aria-label="Difficulty level">
+    <button class="level" data-level="1" aria-pressed="true"><b>Level 1: last octet</b><span>Prefixes /25 to /30 on 192.168 networks. Start here.</span></button>
+    <button class="level" data-level="2" aria-pressed="false"><b>Level 2: third octet</b><span>Prefixes /17 to /30 on 172.16 and 10.0 networks.</span></button>
+    <button class="level" data-level="3" aria-pressed="false"><b>Level 3: mixed</b><span>Any prefix from /8 to /30, every question type.</span></button>
+  </div>
+  <p style="margin:14px 0 12px;color:var(--ink-2)">Each round has 10 questions. Type your answer and press <kbd>Enter</kbd>. After every answer you see the worked solution using the block size method.</p>
+  <button class="btn primary" id="startBtn">Start round</button>
+  <span id="best" style="margin-left:10px;font-size:14px;color:var(--muted)"></span>
+</section>
+
+<div class="grid two" id="playArea" hidden style="margin-top:16px">
+  <section class="card" aria-live="polite">
+    <div class="hud">
+      <span>Question <b id="qn">1</b> of 10</span>
+      <span>Score <b id="sc">0</b></span>
+      <span>Time <b id="tm">0:00</b></span>
+      <span class="streak" id="streak" hidden></span>
+      <div class="dots" id="dots" aria-hidden="true"></div>
+    </div>
+    <div class="qtype" id="qtype"></div>
+    <div class="prompt" id="prompt"></div>
+    <div class="answer-row">
+      <label for="ans" class="sr" style="position:absolute;left:-9999px">Your answer</label>
+      <input type="text" id="ans" autocomplete="off" spellcheck="false" inputmode="decimal" placeholder="Your answer">
+      <button class="btn primary" id="checkBtn">Check</button>
+      <button class="btn" id="hintBtn">Hint</button>
+      <button class="btn" id="showBtn">Show me</button>
+    </div>
+    <div id="hintBox"></div>
+    <div id="fb"></div>
+    <div style="margin-top:12px"><button class="btn primary" id="nextBtn" hidden>Next question</button></div>
+  </section>
+  <aside class="card">
+    <h2>Block size cheat sheet</h2>
+    <div class="scroll-x"><table class="data">
+      <thead><tr><th>Prefix (last octet)</th><th>Mask octet</th><th>Block size</th><th>Usable hosts</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">/25</td><td class="mono">128</td><td>128</td><td>126</td></tr>
+        <tr><td class="mono">/26</td><td class="mono">192</td><td>64</td><td>62</td></tr>
+        <tr><td class="mono">/27</td><td class="mono">224</td><td>32</td><td>30</td></tr>
+        <tr><td class="mono">/28</td><td class="mono">240</td><td>16</td><td>14</td></tr>
+        <tr><td class="mono">/29</td><td class="mono">248</td><td>8</td><td>6</td></tr>
+        <tr><td class="mono">/30</td><td class="mono">252</td><td>4</td><td>2</td></tr>
+      </tbody></table></div>
+    <p style="font-size:14px;color:var(--ink-2);margin:12px 0 0">The same mask values repeat in every octet: /17 to /24 use 128 to 255 in the third octet, /9 to /16 in the second. Block size is always 256 minus the mask value.</p>
+  </aside>
+</div>
+
+<section class="card" id="final" hidden style="margin-top:16px">
+  <h2>Round complete</h2>
+  <div class="score"><span class="final-big" id="fScore">0</span><span>/ 10 correct</span></div>
+  <p id="fMsg" style="margin:10px 0"></p>
+  <div class="scroll-x"><table class="data" id="fTable"><thead><tr><th>Question type</th><th>Correct</th></tr></thead><tbody></tbody></table></div>
+  <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap"><button class="btn primary" id="againBtn">Play another round</button><button class="btn" id="levelBtn">Change level</button></div>
+</section>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+<script>
+
+const hasGSAP = typeof window.gsap !== 'undefined';
+const $ = id => document.getElementById(id);
+const IP = {
+  parse(s){ const p=String(s).trim().split('.'); if(p.length!==4) return null; let n=0;
+    for(const o of p){ if(!/^\d{1,3}$/.test(o)) return null; const v=+o; if(v>255) return null; n=n*256+v; } return n>>>0; },
+  str(n){ n=n>>>0; return [n>>>24,(n>>>16)&255,(n>>>8)&255,n&255].join('.'); },
+  oct(n){ n=n>>>0; return [n>>>24,(n>>>16)&255,(n>>>8)&255,n&255]; },
+  mask(p){ return p<=0?0:(0xFFFFFFFF<<(32-p))>>>0; },
+  net(ip,p){ return (ip & IP.mask(p))>>>0; },
+  bc(ip,p){ return (IP.net(ip,p) | (~IP.mask(p)>>>0))>>>0; },
+  hosts(p){ return 2**(32-p)-2; },
+  hostBitsFor(n){ let h=2; while(2**h-2<n) h++; return h; },
+  prefixFromMask(m){ const b=(m>>>0).toString(2).padStart(32,'0'); return /^1*0*$/.test(b) ? b.indexOf('0')===-1?32:b.indexOf('0') : -1; }
+};
+const fmt=n=>n.toLocaleString('en-US');
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const ORD=['first','second','third','fourth'];
+
+/* explain the block size method for host ip/p */
+function explain(ip,p){
+  const m=IP.mask(p), mo=IP.oct(m), io=IP.oct(ip), n=IP.net(ip,p), b=IP.bc(ip,p);
+  const steps=[`/${p} means the mask is <span class="mono">${IP.str(m)}</span>.`];
+  if(p%8===0){
+    steps.push(`/${p} ends exactly on an octet boundary: keep the first ${p/8} octet${p/8>1?'s':''} and set the rest to 0 for the network, or 255 for the broadcast.`);
+  } else {
+    const k=Math.floor(p/8), bs=256-mo[k], start=Math.floor(io[k]/bs)*bs;
+    steps.push(`The interesting octet is the ${ORD[k]} one (mask value ${mo[k]}). Block size = 256 minus ${mo[k]} = <b>${bs}</b>.`);
+    steps.push(`Blocks in the ${ORD[k]} octet start at multiples of ${bs} (${[0,bs,bs*2,bs*3].filter(x=>x<256).join(', ')}${bs<=32?' and so on':''}). ${io[k]} falls in the block that starts at <b>${start}</b> and ends at <b>${start+bs-1}</b>.`);
+    if(k<3) steps.push(`Octets after the ${ORD[k]} one become 0 in the network address and 255 in the broadcast.`);
+  }
+  steps.push(`Network <span class="mono">${IP.str(n)}</span>, broadcast <span class="mono">${IP.str(b)}</span>.`);
+  steps.push(`First usable = network + 1 = <span class="mono">${IP.str(n+1)}</span>. Last usable = broadcast minus 1 = <span class="mono">${IP.str(b-1)}</span>.`);
+  return steps;
+}
+
+const LEVELS={
+  1:{pmin:25,pmax:30,addr:()=>[192,168,rnd(0,255),rnd(1,254)],types:['net','net','bc','first','last','hosts','maskFor','subnets','mask']},
+  2:{pmin:17,pmax:30,addr:()=>pick([[172,rnd(16,31),rnd(0,255),rnd(0,255)],[10,rnd(0,255),rnd(0,255),rnd(0,255)]]),types:['net','net','bc','bc','first','last','hosts','maskFor','subnets','mask']},
+  3:{pmin:8,pmax:30,addr:()=>pick([[10,rnd(0,255),rnd(0,255),rnd(0,255)],[172,rnd(16,31),rnd(0,255),rnd(0,255)],[192,168,rnd(0,255),rnd(0,255)]]),types:['net','bc','first','last','hosts','maskFor','subnets','mask']}
+};
+const TYPE_NAME={net:'Network address',bc:'Broadcast address',first:'First usable host',last:'Last usable host',hosts:'Hosts per subnet',maskFor:'Prefix for a host count',subnets:'Number of subnets',mask:'Prefix to mask'};
+
+function makeQ(level){
+  const L=LEVELS[level], t=pick(L.types);
+  if(['net','bc','first','last'].includes(t)){
+    let p,ip,tries=0;
+    do{ p=rnd(L.pmin,L.pmax); const o=L.addr(); ip=((o[0]<<24)>>>0)+(o[1]<<16)+(o[2]<<8)+o[3]; tries++; }
+    while((ip===IP.net(ip,p)||ip===IP.bc(ip,p)) && tries<50);
+    const ans={net:IP.net(ip,p),bc:IP.bc(ip,p),first:IP.net(ip,p)+1,last:IP.bc(ip,p)-1}[t]>>>0;
+    const word={net:'network address',bc:'broadcast address',first:'first usable host address',last:'last usable host address'}[t];
+    return {t,kind:'ip',ans,prompt:`Host <span class="mono">${IP.str(ip)}/${p}</span>. What is the ${word} of its subnet?`,
+      hint:`Find the block size in the interesting octet of the mask for /${p}.`, work:explain(ip,p), show:IP.str(ans)};
+  }
+  if(t==='hosts'){
+    const p=rnd(Math.max(L.pmin,level===3?16:L.pmin),30); const h=32-p;
+    return {t,kind:'num',ans:IP.hosts(p),prompt:`How many usable host addresses are in one <span class="mono">/${p}</span> subnet?`,
+      hint:`Count the host bits (32 minus ${p}), then use 2 to that power minus 2.`,
+      work:[`/${p} leaves 32 minus ${p} = ${h} host bits.`,`2<sup>${h}</sup> = ${fmt(2**h)} addresses in each subnet.`,`Subtract 2 (the network and broadcast addresses): <b>${fmt(IP.hosts(p))}</b> usable hosts.`],show:fmt(IP.hosts(p))};
+  }
+  if(t==='maskFor'){
+    const maxH = level===1?7:(level===2?13:20);
+    const h=rnd(2,maxH); const lo=2**(h-1)-2+1, hiv=2**h-2; const n=Math.max(2,rnd(Math.max(1,lo),hiv)); const hb=IP.hostBitsFor(n); const p=32-hb;
+    return {t,kind:'prefix',ans:p,prompt:`A department needs <b>${fmt(n)}</b> host addresses. What is the longest prefix (smallest subnet) that fits? Answer as /prefix or as a dotted mask.`,
+      hint:`Find the smallest h where 2 to the power h, minus 2, is at least ${fmt(n)}.`,
+      work:[`Try host bits: 2<sup>${hb-1}</sup> minus 2 = ${fmt(2**(hb-1)-2)}, which is too few.`,`2<sup>${hb}</sup> minus 2 = ${fmt(2**hb-2)}, which is enough for ${fmt(n)} hosts.`,`Prefix = 32 minus ${hb} = <b>/${p}</b>, mask <span class="mono">${IP.str(IP.mask(p))}</span>.`],show:`/${p} (${IP.str(IP.mask(p))})`};
+  }
+  if(t==='subnets'){
+    const a = level===1?24:pick([16,20,22,24]); const bmax=Math.min(30,a+(level===1?6:8)); const b=rnd(a+1,bmax); const n=b-a;
+    return {t,kind:'num',ans:2**n,prompt:`You divide a <span class="mono">/${a}</span> network into <span class="mono">/${b}</span> subnets. How many subnets do you get?`,
+      hint:`How many bits did you borrow? Each borrowed bit doubles the number of subnets.`,
+      work:[`From /${a} to /${b} you borrow ${b} minus ${a} = ${n} bit${n>1?'s':''}.`,`2<sup>${n}</sup> = <b>${fmt(2**n)}</b> subnets.`],show:fmt(2**n)};
+  }
+  // mask
+  const p=rnd(L.pmin,L.pmax); const m=IP.mask(p), mo=IP.oct(m); const k=Math.min(3,Math.floor(p/8));
+  const w=[`/${p} means ${p} ones followed by ${32-p} zeros.`];
+  if(p%8===0) w.push(`That is exactly ${p/8} full octet${p/8>1?'s':''} of 255.`);
+  else { const ones=p%8; const vals=[128,64,32,16,8,4,2,1].slice(0,ones); w.push(`${Math.floor(p/8)} full octet${Math.floor(p/8)===1?'':'s'} of 255, then ${ones} one bit${ones>1?'s':''} in the ${ORD[k]} octet: ${vals.join(' + ')} = <b>${mo[k]}</b>.`); }
+  w.push(`Mask <span class="mono">${IP.str(m)}</span>.`);
+  return {t,kind:'mask',ans:m,prompt:`Write <span class="mono">/${p}</span> as a dotted decimal subnet mask.`,
+    hint:`Fill whole octets with 255 first, then add the bit values 128, 64, 32 and so on for the remaining ones.`,work:w,show:IP.str(m)};
+}
+
+function grade(q,raw){
+  const s=raw.trim().replace(/\s+/g,'');
+  if(!s) return null;
+  if(q.kind==='ip'){ const v=IP.parse(s); return v===null?{err:'Type a full IPv4 address, for example 192.168.1.64.'}:{ok:v===q.ans}; }
+  if(q.kind==='num'){ const v=s.replace(/,/g,''); if(!/^\d+$/.test(v)) return {err:'Type a whole number.'}; return {ok:+v===q.ans}; }
+  if(q.kind==='prefix'){
+    if(/^\/?\d{1,2}$/.test(s)) return {ok:+s.replace('/','')===q.ans};
+    const v=IP.parse(s); if(v===null) return {err:'Type a prefix like /26 or a mask like 255.255.255.192.'};
+    const pp=IP.prefixFromMask(v); if(pp<0) return {err:'That is not a valid subnet mask (the ones must be continuous).'}; return {ok:pp===q.ans};
+  }
+  if(q.kind==='mask'){ const v=IP.parse(s); if(v===null) return {err:'Type the mask in dotted decimal, for example 255.255.255.224.'}; return {ok:v===q.ans}; }
+}
+
+let level=1, qs=[], idx=0, score=0, streak=0, results=[], answered=false, t0=0, timer=null, hints=0;
+document.querySelectorAll('.level').forEach(b=>b.addEventListener('click',()=>{
+  level=+b.dataset.level; document.querySelectorAll('.level').forEach(x=>x.setAttribute('aria-pressed',x===b)); showBest();
+}));
+function showBest(){ try{ const v=localStorage.getItem('cit283-drill-best-'+level); $('best').textContent=v?`Best on this level: ${v}`:''; }catch(e){ $('best').textContent=''; } }
+function start(){
+  qs=[]; const seen=new Set();
+  while(qs.length<10){ const q=makeQ(level); if(!seen.has(q.prompt)){ seen.add(q.prompt); qs.push(q);} }
+  idx=0; score=0; streak=0; results=[]; hints=0;
+  $('setup').hidden=true; $('final').hidden=true; $('playArea').hidden=false;
+  t0=Date.now(); clearInterval(timer); timer=setInterval(tick,1000); tick();
+  render();
+}
+function tick(){ const s=Math.floor((Date.now()-t0)/1000); $('tm').textContent=`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
+function render(){
+  const q=qs[idx]; answered=false;
+  $('qn').textContent=idx+1; $('sc').textContent=score; $('qtype').textContent=TYPE_NAME[q.t];
+  $('prompt').innerHTML=q.prompt; $('ans').value=''; $('ans').disabled=false; $('fb').innerHTML=''; $('hintBox').innerHTML='';
+  $('nextBtn').hidden=true; ['checkBtn','hintBtn','showBtn'].forEach(id=>$(id).disabled=false);
+  $('dots').innerHTML=qs.map((_,i)=>`<span class="dot ${results[i]===true?'ok':results[i]===false?'bad':''} ${i===idx?'cur':''}"></span>`).join('');
+  $('streak').hidden=streak<2; $('streak').textContent=`Streak ${streak}`;
+  $('ans').focus();
+  if(hasGSAP) gsap.from('#prompt',{y:8,opacity:0,duration:.3});
+}
+function finishQ(ok,raw){
+  answered=true; results[idx]=ok; if(ok){score++;streak++;}else streak=0;
+  $('sc').textContent=score; $('ans').disabled=true; ['checkBtn','hintBtn','showBtn'].forEach(id=>$(id).disabled=true);
+  const q=qs[idx];
+  $('fb').innerHTML=`<div class="feedback ${ok?'ok':'bad'}"><b>${ok?'Correct.':(raw?'Not quite.':'Here is how to solve it.')}</b> ${ok?'':`The answer is <span class="mono">${q.show}</span>.`}<ol class="work">${q.work.map(x=>`<li>${x}</li>`).join('')}</ol></div>`;
+  $('dots').children[idx].className='dot '+(ok?'ok':'bad')+' cur';
+  $('streak').hidden=streak<2; $('streak').textContent=`Streak ${streak}`;
+  $('nextBtn').textContent= idx===9 ? 'See my result' : 'Next question';
+  $('nextBtn').hidden=false; $('nextBtn').focus();
+  if(hasGSAP) gsap.from('#fb .feedback',{opacity:0,y:6,duration:.3});
+}
+function check(){
+  if(answered) return;
+  const r=grade(qs[idx],$('ans').value);
+  if(r===null){ $('fb').innerHTML='<div class="feedback info">Type an answer first, or press Show me to see the solution.</div>'; return; }
+  if(r.err){ $('fb').innerHTML=`<div class="feedback info">${r.err}</div>`; return; }
+  finishQ(r.ok,$('ans').value);
+}
+function next(){
+  if(idx<9){ idx++; render(); return; }
+  clearInterval(timer); $('playArea').hidden=true; $('final').hidden=false;
+  const secs=Math.floor((Date.now()-t0)/1000);
+  $('fScore').textContent=score;
+  const tstr=`${Math.floor(secs/60)} min ${secs%60} s`;
+  $('fMsg').textContent = (score>=9?'Excellent. You are ready for Assignment 2.1 and the VLSM plan in 2.2.':score>=7?'Good work. Review the worked solutions for the ones you missed, then try another round.':'Keep practicing. Open the subnet visualizer, rebuild the block size steps, and play this level again.')+` Time: ${tstr}. Hints used: ${hints}.`;
+  const by={}; qs.forEach((q,i)=>{ by[q.t]=by[q.t]||[0,0]; by[q.t][1]++; if(results[i]) by[q.t][0]++; });
+  $('fTable').tBodies[0].innerHTML=Object.entries(by).map(([t,[c,n]])=>`<tr><td>${TYPE_NAME[t]}</td><td>${c} of ${n}</td></tr>`).join('');
+  try{ const key='cit283-drill-best-'+level; const prev=+(localStorage.getItem(key)||'0/10').split('/')[0]; if(score>=prev) localStorage.setItem(key,`${score}/10`);}catch(e){}
+  if(hasGSAP) gsap.from('#fScore',{scale:.5,opacity:0,duration:.5,ease:'back.out(2)'});
+}
+$('startBtn').addEventListener('click',start);
+$('checkBtn').addEventListener('click',check);
+$('ans').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); check(); } });
+$('nextBtn').addEventListener('click',next);
+$('showBtn').addEventListener('click',()=>{ if(!answered) finishQ(false,''); });
+$('hintBtn').addEventListener('click',()=>{ if(!answered && !$('hintBox').innerHTML){ hints++; $('hintBox').innerHTML=`<div class="hint">${qs[idx].hint}</div>`; } });
+$('againBtn').addEventListener('click',start);
+$('levelBtn').addEventListener('click',()=>{ $('final').hidden=true; $('setup').hidden=false; showBest(); });
+showBest();
+
+</script>
+</body>
+</html>

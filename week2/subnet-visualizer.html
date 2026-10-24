@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subnet Visualizer</title>
+<meta name="description" content="CIT-283 Week 2 interactive: drag a prefix to split a network into subnets, and plan VLSM blocks largest first.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  [hidden]{display:none!important}
+  .grid>*,.controls>*{min-width:0}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .tab{font:inherit;font-weight:600;font-size:14px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 16px;cursor:pointer;color:var(--ink)}
+  .tab[aria-selected=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .controls{display:grid;gap:12px;grid-template-columns:1fr;margin-bottom:14px}
+  @media(min-width:700px){.controls{grid-template-columns:1.3fr .8fr 1.6fr}}
+  .controls label,.dept label{display:block;font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:4px}
+  .controls input,.controls select{width:100%}
+  .slider-row{display:flex;align-items:center;gap:10px}
+  .slider-row input[type=range]{flex:1;accent-color:var(--au-red);min-width:0}
+  .slider-row output{font-family:var(--mono);font-weight:600;font-size:18px;min-width:44px;text-align:right}
+  .note{font-size:14px;color:var(--warn);margin:4px 0 10px}
+  .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:6px 0 16px}
+  @media(min-width:700px){.stats{grid-template-columns:repeat(5,minmax(0,1fr))}}
+  .stat{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .stat .v{font-family:var(--mono);font-weight:600;font-size:17px;overflow-wrap:anywhere}
+  .bits{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 6px}
+  .oct{display:flex;gap:2px}
+  .bit{width:20px;height:28px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:600;border-radius:4px;color:#fff}
+  @media(max-width:520px){.bit{width:9.5px;height:24px;font-size:9px;border-radius:2px}.bits{gap:3px}.oct{gap:1px}}
+  .b-net{background:var(--net-blue)} .b-sub{background:var(--net-purple)} .b-host{background:var(--net-amber)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--ink-2)}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .bar{display:flex;width:100%;height:46px;border-radius:8px;overflow:hidden;border:1px solid #CBD2DA;background:repeating-linear-gradient(45deg,#F1F3F6,#F1F3F6 6px,#E6E9EE 6px,#E6E9EE 12px);margin:10px 0 4px}
+  .seg{height:100%;border-right:1px solid rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;cursor:pointer;min-width:0;overflow:hidden;white-space:nowrap;transition:filter .15s}
+  .seg:hover,.seg.on{filter:brightness(1.15) saturate(1.2);outline:2px solid var(--ink);outline-offset:-2px}
+  .bar-scale{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .steps{margin:0;padding-left:20px} .steps li{margin-bottom:6px}
+  table.data tr.on td{background:#FFF7E6}
+  table.data td.mono{font-family:var(--mono);font-size:13px;white-space:nowrap}
+  .tablewrap{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .tablewrap table.data th{position:sticky;top:0;background:#fff}
+  .dept{display:grid;grid-template-columns:1fr 110px 36px;gap:8px;align-items:end;margin-bottom:8px}
+  .dept input{width:100%}
+  .swatch{width:14px;height:14px;border-radius:3px;display:inline-block;vertical-align:-2px;margin-right:6px}
+  .iconbtn{font:inherit;border:1px solid var(--line);background:#fff;border-radius:8px;height:40px;cursor:pointer;color:var(--muted);font-size:18px;line-height:1}
+  .row-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 2 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 2 · Explorer</span>
+    <h1>Subnet visualizer</h1>
+    <p class="lede">Drag the prefix and watch one address block split into equal subnets, with every network, host range and broadcast listed. Then switch to VLSM and give each department a block sized to its needs.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol><li>Type a starting network such as 192.168.10.0 and choose its prefix (/24 for a typical office).</li><li>Drag the new prefix slider to the right. Each step borrows one more host bit and doubles the number of subnets.</li><li>Watch the purple borrowed bits, the block size and the subnet table change together. Click any subnet to highlight it.</li><li>Read the block size method panel and try to predict the next row of the table before you look.</li><li>Open the VLSM tab, enter departments and their host counts, and press Allocate largest first.</li></ol>
+  </details>
+
+  
+<div class="tabs" role="tablist" aria-label="Mode">
+  <button class="tab" role="tab" id="tabEq" aria-selected="true" aria-controls="panelEq">Equal subnets</button>
+  <button class="tab" role="tab" id="tabV" aria-selected="false" aria-controls="panelV">VLSM (different sizes)</button>
+</div>
+
+<section id="panelEq" role="tabpanel" aria-labelledby="tabEq">
+  <div class="card">
+    <h2>Split a network into equal subnets</h2>
+    <div class="controls">
+      <div><label for="netIn">Starting network address</label><input type="text" id="netIn" value="192.168.10.0" autocomplete="off" spellcheck="false" inputmode="decimal"></div>
+      <div><label for="parentP">Its prefix</label><select id="parentP"></select></div>
+      <div><label for="newP">New subnet prefix (drag)</label>
+        <div class="slider-row"><input type="range" id="newP" min="24" max="30" value="26" aria-describedby="newPOut"><output id="newPOut">/26</output></div></div>
+    </div>
+    <div id="eqNote" class="note" hidden></div>
+    <div class="stats">
+      <div class="stat"><div class="k">Bits borrowed</div><div class="v" id="sBorrow">2</div></div>
+      <div class="stat"><div class="k">Subnets</div><div class="v" id="sSubnets">4</div></div>
+      <div class="stat"><div class="k">Usable hosts each</div><div class="v" id="sHosts">62</div></div>
+      <div class="stat"><div class="k">New mask</div><div class="v" id="sMask">255.255.255.192</div></div>
+      <div class="stat"><div class="k">Block size</div><div class="v" id="sBlock">64</div></div>
+    </div>
+    <h3>The 32 bits of the new mask</h3>
+    <div class="bits" id="bits" aria-label="Bit map"></div>
+    <div class="legend"><span><i class="b-net"></i>Original network bits</span><span><i class="b-sub"></i>Borrowed subnet bits</span><span><i class="b-host"></i>Host bits</span></div>
+    <h3 style="margin-top:18px">The address block, divided</h3>
+    <div class="bar" id="eqBar"></div>
+    <div class="bar-scale"><span id="eqStart"></span><span id="eqEnd"></span></div>
+    <p id="eqBarNote" style="font-size:13px;color:var(--muted);margin:6px 0 0"></p>
+  </div>
+
+  <div class="grid two" style="margin-top:16px">
+    <section class="card">
+      <h2>Subnet table</h2>
+      <p style="margin:0 0 10px;font-size:14px;color:var(--ink-2)">Click a row or a block in the bar to highlight it.</p>
+      <div class="tablewrap"><table class="data" id="eqTable"><thead><tr><th>#</th><th>Network</th><th>First usable</th><th>Last usable</th><th>Broadcast</th></tr></thead><tbody></tbody></table></div>
+      <p id="eqTableNote" style="font-size:13px;color:var(--muted);margin:8px 0 0"></p>
+    </section>
+    <aside class="card">
+      <h2>The block size method</h2>
+      <ol class="steps" id="method"></ol>
+    </aside>
+  </div>
+</section>
+
+<section id="panelV" role="tabpanel" aria-labelledby="tabV" hidden>
+  <div class="grid two">
+    <section class="card">
+      <h2>Plan subnets of different sizes</h2>
+      <div class="controls" style="grid-template-columns:1fr">
+        <div style="display:grid;grid-template-columns:1fr 120px;gap:10px">
+          <div><label for="vNet">Address block to divide</label><input type="text" id="vNet" value="192.168.100.0" autocomplete="off" spellcheck="false" inputmode="decimal"></div>
+          <div><label for="vP">Prefix</label><select id="vP"></select></div>
+        </div>
+      </div>
+      <h3>Departments (up to 6)</h3>
+      <div id="depts"></div>
+      <div class="row-actions">
+        <button class="btn" id="addDept">Add department</button>
+        <button class="btn primary" id="runV">Allocate largest first</button>
+      </div>
+    </section>
+    <aside class="card">
+      <h2>How VLSM works</h2>
+      <ol class="steps">
+        <li>Sort the departments from the most hosts to the fewest.</li>
+        <li>For each one, find the smallest number of host bits h where 2<sup>h</sup> minus 2 is at least the hosts needed. The prefix is 32 minus h.</li>
+        <li>Give it the next free block of that size, starting at the beginning of the address space.</li>
+        <li>Because the biggest blocks go first, every block starts on a correct boundary and nothing overlaps.</li>
+        <li>Whatever is left at the end is free space for growth or for point-to-point links.</li>
+      </ol>
+    </aside>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h2>Allocation</h2>
+    <div id="vMsg"></div>
+    <div class="bar" id="vBar"></div>
+    <div class="bar-scale"><span id="vStart"></span><span id="vEnd"></span></div>
+    <div class="scroll-x" style="margin-top:14px"><table class="data" id="vTable"><thead><tr><th>Department</th><th>Hosts needed</th><th>Prefix</th><th>Network</th><th>First usable</th><th>Last usable</th><th>Broadcast</th><th>Usable</th><th>Unused</th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+<script>
+
+const hasGSAP = typeof window.gsap !== 'undefined';
+const $ = id => document.getElementById(id);
+const IP = {
+  parse(s){ const p=String(s).trim().split('.'); if(p.length!==4) return null; let n=0;
+    for(const o of p){ if(!/^\d{1,3}$/.test(o)) return null; const v=+o; if(v>255) return null; n=n*256+v; } return n>>>0; },
+  str(n){ n=n>>>0; return [n>>>24,(n>>>16)&255,(n>>>8)&255,n&255].join('.'); },
+  mask(p){ return p<=0?0:(0xFFFFFFFF<<(32-p))>>>0; },
+  net(ip,p){ return (ip & IP.mask(p))>>>0; },
+  size(p){ return 2**(32-p); },
+  hosts(p){ return p>=31 ? (p===31?2:1) : 2**(32-p)-2; },
+  hostBitsFor(n){ let h=2; while(2**h-2<n) h++; return h; }
+};
+const COLORS=['#2563EB','#7C3AED','#0F766E','#B45309','#BE185D','#15803D'];
+const fmt = n => n.toLocaleString('en-US');
+
+/* ---------- equal subnets ---------- */
+const parentSel=$('parentP'), vSel=$('vP');
+for(let p=8;p<=29;p++){ parentSel.add(new Option('/'+p,p)); }
+for(let p=16;p<=29;p++){ vSel.add(new Option('/'+p,p)); }
+parentSel.value='24'; vSel.value='24';
+let selected=-1;
+
+function eqState(){
+  const raw=$('netIn').value; const ip=IP.parse(raw); const pp=+parentSel.value;
+  const slider=$('newP'); slider.min=Math.min(pp+1,30); slider.max=30;
+  if(+slider.value<+slider.min) slider.value=slider.min;
+  return {ip, pp, np:+slider.value, raw};
+}
+function methodSteps(base,pp,np){
+  const m=IP.mask(np); const oct=[m>>>24,(m>>>16)&255,(m>>>8)&255,m&255];
+  const out=[];
+  out.push(`The new prefix /${np} means the mask is <span class="mono">${IP.str(m)}</span>.`);
+  if(np%8===0){
+    out.push(`/${np} falls exactly on an octet boundary, so each subnet is a whole block of ${fmt(IP.size(np))} addresses and the change happens in octet ${np/8}.`);
+  } else {
+    const k=Math.floor(np/8); const bs=256-oct[k];
+    out.push(`The interesting octet is octet ${k+1}, the last one that is not 255 or 0. Its mask value is <b>${oct[k]}</b>.`);
+    out.push(`Block size = 256 minus ${oct[k]} = <b>${bs}</b>. Subnets in octet ${k+1} start at 0, ${bs}, ${bs*2}${256/bs>3?', '+bs*3:''}${256/bs>4?' and so on':''}.`);
+  }
+  out.push(`You borrowed ${np-pp} bit${np-pp===1?'':'s'}, so there are 2<sup>${np-pp}</sup> = ${fmt(2**(np-pp))} subnets.`);
+  out.push(`${32-np} host bits remain: 2<sup>${32-np}</sup> minus 2 = ${fmt(IP.hosts(np))} usable hosts per subnet (the network and broadcast addresses cannot be assigned).`);
+  out.push(`In every subnet, first usable = network + 1 and last usable = broadcast minus 1. Broadcast = next network minus 1.`);
+  return out;
+}
+function renderEq(){
+  const {ip,pp,np,raw}=eqState();
+  $('newPOut').textContent='/'+np;
+  const note=$('eqNote');
+  if(ip===null){ note.hidden=false; note.textContent='Type a valid IPv4 address, for example 192.168.10.0.'; return; }
+  const base=IP.net(ip,pp);
+  if(base!==ip){ note.hidden=false; note.textContent=`${raw.trim()} has host bits set for /${pp}. The network address of that block is ${IP.str(base)}, so the tool uses ${IP.str(base)}.`; }
+  else note.hidden=true;
+  const borrow=np-pp, count=2**borrow, size=IP.size(np);
+  $('sBorrow').textContent=borrow; $('sSubnets').textContent=fmt(count); $('sHosts').textContent=fmt(IP.hosts(np));
+  $('sMask').textContent=IP.str(IP.mask(np));
+  const m=IP.mask(np), k=Math.floor(np/8);
+  $('sBlock').textContent = np%8===0 ? fmt(size)+' addresses' : (256-((m>>>(24-8*k))&255))+' (octet '+(k+1)+')';
+  // bits
+  const bits=$('bits'); bits.innerHTML='';
+  for(let o=0;o<4;o++){ const g=document.createElement('div'); g.className='oct';
+    for(let b=0;b<8;b++){ const i=o*8+b; const d=document.createElement('div');
+      d.className='bit '+(i<pp?'b-net':i<np?'b-sub':'b-host'); d.textContent=i<np?'1':'0'; g.appendChild(d);} bits.appendChild(g);}
+  if(hasGSAP) gsap.fromTo('#bits .b-sub',{y:-6,opacity:.4},{y:0,opacity:1,duration:.3,stagger:.02});
+  // bar
+  const shown=Math.min(count,64); const bar=$('eqBar'); bar.innerHTML='';
+  for(let i=0;i<shown;i++){ const s=document.createElement('div'); s.className='seg'; s.style.flex='1';
+    s.style.background=i%2?'#7C3AED':'#2563EB'; s.dataset.i=i; s.title=`Subnet ${i+1}: ${IP.str(base+i*size)}/${np}`;
+    if(shown<=16) s.textContent= shown<=8 ? IP.str(base+i*size).split('.').slice(Math.min(3,np%8===0?np/8-1:k)).join('.') : (i+1);
+    s.addEventListener('click',()=>selectRow(i)); bar.appendChild(s);}
+  $('eqStart').textContent=IP.str(base);
+  $('eqEnd').textContent=IP.str(base+shown*size-1);
+  $('eqBarNote').textContent= count>64 ? `Showing the first 64 of ${fmt(count)} subnets. The full /${pp} block ends at ${IP.str(base+IP.size(pp)-1)}.` : `The whole /${pp} block, from ${IP.str(base)} to ${IP.str(base+IP.size(pp)-1)}.`;
+  // table
+  const tb=$('eqTable').tBodies[0]; tb.innerHTML='';
+  for(let i=0;i<shown;i++){ const n=base+i*size, b=n+size-1;
+    const tr=document.createElement('tr'); tr.dataset.i=i; tr.tabIndex=0;
+    tr.innerHTML=`<td>${i+1}</td><td class="mono">${IP.str(n)}/${np}</td><td class="mono">${np>=31?'n/a':IP.str(n+1)}</td><td class="mono">${np>=31?'n/a':IP.str(b-1)}</td><td class="mono">${IP.str(b)}</td>`;
+    tr.addEventListener('click',()=>selectRow(i)); tr.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectRow(i);}});
+    tb.appendChild(tr);}
+  $('eqTableNote').textContent = count>64 ? `First 64 of ${fmt(count)} subnets shown. The pattern continues in steps of ${fmt(size)} addresses.` : '';
+  $('method').innerHTML=methodSteps(base,pp,np).map(x=>`<li>${x}</li>`).join('');
+  selected=-1;
+}
+function selectRow(i){
+  selected=i;
+  document.querySelectorAll('#eqTable tbody tr').forEach(tr=>tr.classList.toggle('on',+tr.dataset.i===i));
+  document.querySelectorAll('#eqBar .seg').forEach(s=>s.classList.toggle('on',+s.dataset.i===i));
+  const tr=document.querySelector(`#eqTable tbody tr[data-i="${i}"]`); if(tr) tr.scrollIntoView({block:'nearest'});
+}
+['input','change'].forEach(ev=>{ $('netIn').addEventListener(ev,renderEq); parentSel.addEventListener(ev,renderEq); $('newP').addEventListener(ev,renderEq); });
+
+/* ---------- VLSM ---------- */
+const DEFAULT=[['Sales',60],['Warehouse',28],['Office',10],['Servers',4]];
+function deptRow(name,hosts){
+  const d=document.createElement('div'); d.className='dept';
+  const idx=$('depts').children.length;
+  d.innerHTML=`<div><label>Department name</label><input type="text" class="dn" value="${name}" maxlength="24" aria-label="Department name"></div>
+  <div><label>Hosts needed</label><input type="number" class="dh" value="${hosts}" min="1" max="100000" aria-label="Hosts needed"></div>
+  <button class="iconbtn" title="Remove" aria-label="Remove department">&times;</button>`;
+  d.querySelector('button').addEventListener('click',()=>{ d.remove(); runV(); });
+  d.querySelectorAll('input').forEach(i=>i.addEventListener('change',runV));
+  $('depts').appendChild(d);
+}
+DEFAULT.forEach(([n,h])=>deptRow(n,h));
+$('addDept').addEventListener('click',()=>{ if($('depts').children.length>=6){ $('vMsg').innerHTML='<div class="feedback info">The tool plans up to 6 departments at a time.</div>'; return;} deptRow('Dept '+($('depts').children.length+1),8); });
+function allocate(base,pp,list){
+  const sorted=list.map((d,i)=>({...d,i})).sort((a,b)=>b.hosts-a.hosts||a.i-b.i);
+  let cur=base; const end=base+IP.size(pp); const out=[];
+  for(const d of sorted){
+    const h=IP.hostBitsFor(d.hosts); const p=32-h; const size=2**h;
+    if(cur%size!==0) cur=Math.ceil(cur/size)*size; // safety, never needed when sorted
+    if(cur+size>end) return {error:`${d.name} needs a /${p} (${fmt(size)} addresses), but only ${fmt(Math.max(0,end-cur))} addresses are left in ${IP.str(base)}/${pp}. Use a bigger block or fewer hosts.`, out};
+    out.push({...d,p,size,net:cur,usable:size-2,unused:size-2-d.hosts}); cur+=size;
+  }
+  return {out,free:end-cur,next:cur,end};
+}
+function runV(){
+  const ip=IP.parse($('vNet').value), pp=+vSel.value; const msg=$('vMsg');
+  if(ip===null){ msg.innerHTML='<div class="feedback bad">Type a valid IPv4 address for the block.</div>'; return; }
+  const base=IP.net(ip,pp);
+  const list=[...$('depts').children].map((d,k)=>({name:d.querySelector('.dn').value.trim()||('Dept '+(k+1)),hosts:Math.max(1,Math.floor(+d.querySelector('.dh').value||0)),color:COLORS[k%6]}));
+  if(!list.length){ msg.innerHTML='<div class="feedback info">Add at least one department.</div>'; return; }
+  const r=allocate(base,pp,list);
+  const total=IP.size(pp); const bar=$('vBar'); bar.innerHTML=''; const tb=$('vTable').tBodies[0]; tb.innerHTML='';
+  $('vStart').textContent=IP.str(base); $('vEnd').textContent=IP.str(base+total-1);
+  let html = base!==ip ? `<div class="feedback info">${$('vNet').value.trim()} has host bits set for /${pp}, so the block starts at ${IP.str(base)}.</div>` : '';
+  r.out.forEach(a=>{
+    const s=document.createElement('div'); s.className='seg'; s.style.width=(a.size/total*100)+'%'; s.style.flex='none'; s.style.background=a.color;
+    s.title=`${a.name}: ${IP.str(a.net)}/${a.p}`; if(a.size/total>=.2) s.textContent=a.name; bar.appendChild(s);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="white-space:nowrap"><span class="swatch" style="background:${a.color}"></span>${a.name}</td><td>${fmt(a.hosts)}</td><td class="mono">/${a.p}</td><td class="mono">${IP.str(a.net)}</td><td class="mono">${IP.str(a.net+1)}</td><td class="mono">${IP.str(a.net+a.size-2)}</td><td class="mono">${IP.str(a.net+a.size-1)}</td><td>${fmt(a.usable)}</td><td>${fmt(a.unused)}</td>`;
+    tb.appendChild(tr);
+  });
+  if(r.error){ html+=`<div class="feedback bad">${r.error}</div>`; }
+  else { html+=`<div class="feedback ok">All ${r.out.length} departments fit with no overlap. ${fmt(r.free)} addresses remain free, starting at ${IP.str(r.next)}${r.free>=4?', enough for point-to-point /30 links later':''}.</div>`; }
+  msg.innerHTML=html;
+  if(hasGSAP) gsap.from('#vBar .seg',{scaleX:0,transformOrigin:'left center',duration:.45,stagger:.08});
+}
+$('runV').addEventListener('click',runV);
+$('vNet').addEventListener('change',runV); vSel.addEventListener('change',runV);
+
+/* ---------- tabs ---------- */
+function tab(which){
+  const eq=which==='eq';
+  $('tabEq').setAttribute('aria-selected',eq); $('tabV').setAttribute('aria-selected',!eq);
+  $('panelEq').hidden=!eq; $('panelV').hidden=eq; if(!eq) runV();
+}
+$('tabEq').addEventListener('click',()=>tab('eq')); $('tabV').addEventListener('click',()=>tab('v'));
+renderEq();
+
+</script>
+</body>
+</html>

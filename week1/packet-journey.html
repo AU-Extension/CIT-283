@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Packet Journey Simulator</title>
+<meta name="description" content="CIT-283 Week 1 interactive: predict and watch ARP, MAC learning and routing as a ping crosses a small network.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+
+  .stack{display:grid;gap:16px}
+  .stack>*,.grid>*{min-width:0}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .tab{font:inherit;font-size:14px;font-weight:600;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink-2)}
+  .tab[aria-selected=true]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .tab .done{color:var(--ok);margin-left:6px}
+  .tab[aria-selected=true] .done{color:#86EFAC}
+  #topo{width:100%;height:auto;display:block;background:linear-gradient(#FBFCFD,#F3F5F8);border:1px solid var(--line);border-radius:10px}
+  .lnk{stroke:#9AA3AF;stroke-width:4;stroke-linecap:round}
+  .port{font-size:15px;fill:#6B7280;font-family:var(--mono)}
+  .nlabel{font-size:20px;font-weight:700;fill:var(--ink)}
+  .naddr{font-size:15px;fill:#4B5563;font-family:var(--mono)}
+  .node-glow{fill:none;stroke:var(--au-red);stroke-width:4;opacity:0}
+  .stepno{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .question{font-size:17px;font-weight:600;margin:6px 0 12px}
+  .ctx{color:var(--ink-2);margin:0 0 10px}
+  .opts{display:grid;gap:8px}
+  .opt{font:inherit;text-align:left;padding:11px 14px;border-radius:10px;border:1.5px solid #CBD2DA;background:#fff;cursor:pointer;color:var(--ink);line-height:1.4}
+  .opt:hover:not([disabled]){border-color:var(--net-blue);background:#F5F8FF}
+  .opt.right{border-color:var(--ok);background:var(--ok-soft)}
+  .opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+  .opt[disabled]{cursor:default}
+  .frame{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:4px}
+  .frame-head{background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:6px 10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .frame table{width:100%;border-collapse:collapse;font-size:13px}
+  .frame td{padding:5px 10px;border-top:1px solid var(--line);vertical-align:top}
+  .frame td:first-child{color:var(--muted);width:38%}
+  .frame td:last-child{font-family:var(--mono);overflow-wrap:anywhere}
+  .l2{background:#EFF6FF} .l3{background:#F0FDF4}
+  .tables{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
+  .tbox{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#FBFBFC}
+  .tbox h3{font-size:13px;margin:0 0 4px;color:var(--ink-2)}
+  .tbox table{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono)}
+  .tbox td,.tbox th{padding:3px 4px;text-align:left;border-bottom:1px solid var(--line)}
+  .tbox th{font-family:var(--sans);font-size:11px;color:var(--muted);font-weight:600}
+  .tbox .empty{font-family:var(--sans);color:var(--muted);font-size:12px;font-style:italic}
+  .rt{font-family:var(--mono);font-size:13px;background:var(--code-bg);color:var(--code-ink);padding:10px 12px;border-radius:8px;white-space:pre;overflow:auto;margin:0 0 10px}
+  .progress{height:6px;background:#EEF1F5;border-radius:999px;overflow:hidden;margin:6px 0 12px}
+  .progress>div{height:100%;background:var(--au-red);width:0;transition:width .3s}
+  .addr-table td{font-size:13px}
+  .addr-table td:nth-child(n+2){font-family:var(--mono)}
+
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 1 · Interactive B</div>
+  </div>
+</header>
+
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 1 · Simulator</span>
+    <h1>Packet journey simulator</h1>
+    <p class="lede">Follow a ping one step at a time. Before each step you predict what the network will do, then you watch it happen. You will see ARP, switch MAC tables and a router at work, exactly like Simulation mode in Packet Tracer.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Choose a ping. Start with Ping 1 (same network), then do Ping 2 (different network).</li>
+      <li>Read the situation and pick your prediction. Only your first try counts toward the score.</li>
+      <li>Watch the animation, then read the frame card and the tables on the right. They show what each device learned.</li>
+      <li>Press <em>Next step</em> to continue. Your total score appears after both pings are complete.</li>
+      <li>Use <em>Restart this ping</em> any time to try again with empty tables.</li>
+    </ol>
+  </details>
+
+  <div class="stack">
+    <section class="card">
+      <div class="tabs" role="tablist" aria-label="Choose a ping">
+        <button class="tab" role="tab" id="tab0" aria-selected="true">Ping 1: PC-A to PC-B<span class="done" id="done0"></span></button>
+        <button class="tab" role="tab" id="tab1" aria-selected="false">Ping 2: PC-A to PC-C<span class="done" id="done1"></span></button>
+      </div>
+      <svg id="topo" viewBox="0 0 900 400" role="img" aria-label="Topology: PC-A and PC-B connect to switch SW1, SW1 connects to router R1, R1 connects to switch SW2, SW2 connects to PC-C">
+        <g id="links"></g><g id="nodes"></g><g id="packets"></g>
+      </svg>
+    </section>
+
+    <div class="grid two">
+      <section class="card" aria-live="polite">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <span class="stepno" id="stepno">Step 1 of 7</span>
+          <span class="pill" id="scorePill">Score 0</span>
+        </div>
+        <div class="progress"><div id="prog"></div></div>
+        <div id="stepBody"></div>
+        <div id="fb"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+          <button class="btn primary" id="nextBtn" disabled>Next step</button>
+          <button class="btn" id="restartBtn">Restart this ping</button>
+        </div>
+      </section>
+      <aside class="card">
+        <h2>Last frame on the wire</h2>
+        <div id="frameBox"><p class="ctx">No frame sent yet.</p></div>
+        <div class="tables" id="tables"></div>
+        <details style="margin-top:12px">
+          <summary style="cursor:pointer;font-weight:600">Device addresses</summary>
+          <div class="scroll-x"><table class="data addr-table" id="addrTable"></table></div>
+        </details>
+      </aside>
+    </div>
+
+    <section class="card" id="final" hidden>
+      <h2>Your result</h2>
+      <div class="score"><span class="big" id="finalScore">0</span><span id="finalOf">/ 15 correct on the first try</span></div>
+      <div id="finalMsg"></div>
+    </section>
+  </div>
+</main>
+<script>
+const hasGSAP = typeof window.gsap !== 'undefined';
+const $=id=>document.getElementById(id);
+const NS='http://www.w3.org/2000/svg';
+const MAC={A:'0060.AAAA.0001',B:'0060.BBBB.0002',C:'0060.CCCC.0003',R0:'00D0.1111.0001',R1:'00D0.2222.0002',BC:'FFFF.FFFF.FFFF'};
+const NODES={
+  PCA:{x:90,y:80,label:'PC-A',addr:'192.168.1.10',type:'pc'},
+  PCB:{x:90,y:320,label:'PC-B',addr:'192.168.1.20',type:'pc'},
+  SW1:{x:280,y:200,label:'SW1',addr:'',type:'sw'},
+  R1:{x:470,y:200,label:'R1',addr:'',type:'rt'},
+  SW2:{x:660,y:200,label:'SW2',addr:'',type:'sw'},
+  PCC:{x:830,y:200,label:'PC-C',addr:'192.168.2.10',type:'pc'}
+};
+const LINKS=[['PCA','SW1','Fa0','Fa0/1'],['PCB','SW1','Fa0','Fa0/2'],['SW1','R1','Gi0/1','G0/0/0'],['R1','SW2','G0/0/1','Gi0/1'],['SW2','PCC','Fa0/1','Fa0']];
+
+function el(tag,attrs,parent,text){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!==undefined)e.textContent=text;if(parent)parent.appendChild(e);return e;}
+function drawTopo(){
+  const L=$('links'),N=$('nodes');
+  LINKS.forEach(([a,b,pa,pb])=>{
+    const A=NODES[a],B=NODES[b];
+    el('line',{x1:A.x,y1:A.y,x2:B.x,y2:B.y,class:'lnk'},L);
+    const dx=B.x-A.x, dy=B.y-A.y, len=Math.hypot(dx,dy), nx=-dy/len, ny=dx/len, t=Math.min(.42,72/len);
+    // label for end A sits on one side of the line, label for end B on the other side
+    el('text',{x:A.x+dx*t-nx*14,y:A.y+dy*t-ny*14+4,class:'port','text-anchor':'middle'},L,pa);
+    el('text',{x:B.x-dx*t+nx*16,y:B.y-dy*t+ny*16+4,class:'port','text-anchor':'middle'},L,pb);
+  });
+  // R1 interface addresses
+  el('text',{x:400,y:265,class:'naddr','text-anchor':'middle'},L,'192.168.1.1');
+  el('text',{x:545,y:265,class:'naddr','text-anchor':'middle'},L,'192.168.2.1');
+  for(const id in NODES){
+    const n=NODES[id]; const g=el('g',{id:'n_'+id,transform:`translate(${n.x},${n.y})`},N);
+    el('circle',{r:46,class:'node-glow',id:'glow_'+id},g);
+    if(n.type==='pc'){
+      el('rect',{x:-30,y:-24,width:60,height:40,rx:5,fill:'#fff',stroke:'#16181D','stroke-width':3},g);
+      el('rect',{x:-22,y:-17,width:44,height:26,rx:2,fill:'#DBEAFE'},g);
+      el('rect',{x:-14,y:18,width:28,height:6,rx:2,fill:'#16181D'},g);
+    }else if(n.type==='sw'){
+      el('rect',{x:-38,y:-20,width:76,height:40,rx:6,fill:'#0F766E'},g);
+      el('path',{d:'M-22 -6 h34 l-6 -5 M22 6 h-34 l6 5',stroke:'#fff','stroke-width':3,fill:'none','stroke-linecap':'round'},g);
+    }else{
+      el('circle',{r:30,fill:'#1D4ED8'},g);
+      el('path',{d:'M-16 0 h32 M0 -16 v32 M10 -6 l6 6 l-6 6 M-10 -6 l-6 6 l6 6',stroke:'#fff','stroke-width':3,fill:'none','stroke-linecap':'round'},g);
+    }
+    const ly = n.type==='pc' ? (id==='PCB'?50:-36) : 52;
+    el('text',{x:0,y: id==='PCA'?-36: ly,class:'nlabel','text-anchor':'middle'},g,n.label);
+    if(n.addr) el('text',{x:0,y: id==='PCA'? 44 : (id==='PCB'?72:52+22),class:'naddr','text-anchor':'middle'},g,n.addr);
+  }
+}
+function glow(id){const g=$('glow_'+id); if(!g)return; if(hasGSAP){gsap.fromTo(g,{opacity:1},{opacity:0,duration:1.2});} else {g.style.opacity=1;setTimeout(()=>g.style.opacity=0,900);}}
+
+/* packet animation with requestAnimationFrame (works without GSAP) */
+const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function animatePath(path,color,label){
+  return new Promise(res=>{
+    const P=$('packets');
+    const g=el('g',{},P); el('rect',{x:-26,y:-14,width:52,height:28,rx:14,fill:color,stroke:'#fff','stroke-width':2},g);
+    el('text',{x:0,y:5,'text-anchor':'middle','font-size':13,'font-weight':700,fill:'#fff'},g,label);
+    const pts=path.map(id=>NODES[id]); let seg=0; const dur=reduce?1:520; let t0=null;
+    function frame(ts){
+      if(t0===null)t0=ts; let k=Math.min(1,(ts-t0)/dur);
+      const e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+      const A=pts[seg],B=pts[seg+1];
+      g.setAttribute('transform',`translate(${A.x+(B.x-A.x)*e},${A.y+(B.y-A.y)*e})`);
+      if(k>=1){ glow(path[seg+1]); seg++; t0=null; if(seg>=pts.length-1){ setTimeout(()=>{g.remove();res();},250); return; } }
+      requestAnimationFrame(frame);
+    }
+    g.setAttribute('transform',`translate(${pts[0].x},${pts[0].y})`);
+    requestAnimationFrame(frame);
+  });
+}
+async function play(anims){ for(const group of anims){ await Promise.all(group.map(a=>animatePath(a.path,a.color,a.label))); } }
+const COL={arp:'#B45309',icmp:'#15803D',reply:'#7C3AED'};
+
+/* tables */
+let T;
+function resetTables(){ T={pcaArp:[],sw1:[],r1Arp:[],sw2:[]}; }
+function addRow(tbl,row){ if(!T[tbl].some(r=>r[0]===row[0])) T[tbl].push(row); renderTables(tbl); }
+function renderTables(flash){
+  const box=(id,title,heads,rows)=>`<div class="tbox" id="tb_${id}"><h3>${title}</h3>${rows.length?`<table><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table>`:'<div class="empty">empty</div>'}</div>`;
+  $('tables').innerHTML=box('pcaArp','PC-A ARP cache',['IP','MAC'],T.pcaArp)+box('sw1','SW1 MAC table',['MAC','Port'],T.sw1)+box('r1Arp','R1 ARP table',['IP','MAC'],T.r1Arp)+box('sw2','SW2 MAC table',['MAC','Port'],T.sw2);
+  if(flash){ const b=$('tb_'+flash); if(b){ if(hasGSAP) gsap.fromTo(b,{backgroundColor:'#FEF3C7'},{backgroundColor:'#FBFBFC',duration:1.4}); else { b.style.background='#FEF3C7'; setTimeout(()=>b.style.background='',1200);} } }
+}
+function showFrame(f){
+  if(!f){ $('frameBox').innerHTML='<p class="ctx">No frame sent yet.</p>'; return; }
+  $('frameBox').innerHTML=`<div class="frame"><div class="frame-head"><span>${f.name}</span><span>${f.where}</span></div><table>
+   <tr class="l2"><td>Destination MAC</td><td>${f.dmac}</td></tr><tr class="l2"><td>Source MAC</td><td>${f.smac}</td></tr>
+   ${f.dip?`<tr class="l3"><td>Destination IP</td><td>${f.dip}</td></tr><tr class="l3"><td>Source IP</td><td>${f.sip}</td></tr>`:''}
+   <tr><td>Contents</td><td>${f.data}</td></tr></table></div>`;
+  if(hasGSAP) gsap.from('#frameBox .frame',{y:8,opacity:0,duration:.35});
+}
+$('addrTable').innerHTML=`<tr><th>Device</th><th>IP</th><th>MAC</th></tr>
+<tr><td>PC-A</td><td>192.168.1.10/24, gateway .1</td><td>${MAC.A}</td></tr>
+<tr><td>PC-B</td><td>192.168.1.20/24, gateway .1</td><td>${MAC.B}</td></tr>
+<tr><td>R1 G0/0/0</td><td>192.168.1.1/24</td><td>${MAC.R0}</td></tr>
+<tr><td>R1 G0/0/1</td><td>192.168.2.1/24</td><td>${MAC.R1}</td></tr>
+<tr><td>PC-C</td><td>192.168.2.10/24, gateway 2.1</td><td>${MAC.C}</td></tr>`;
+
+/* scenarios */
+const S=[
+ {name:'Ping 1', steps:[
+  {ctx:'PC-A (192.168.1.10/24) wants to ping PC-B at 192.168.1.20.',
+   q:'Is PC-B on the same network as PC-A?',
+   opts:['Yes. With the /24 mask, both addresses are in 192.168.1.0/24.','No. PC-A must send the packet to its default gateway.','PC-A cannot know until the router tells it.','Only if both PCs are plugged into the same switch port.'], a:0,
+   ex:'PC-A applies its mask to both addresses. 192.168.1.10 AND 255.255.255.0 = 192.168.1.0, and 192.168.1.20 AND 255.255.255.0 = 192.168.1.0. Same network, so PC-A delivers the packet directly on the LAN. The router is not needed.'},
+  {ctx:'PC-A knows PC-B\'s IP address, but an Ethernet frame needs a MAC address. PC-A\'s ARP cache is empty, so it sends an ARP request.',
+   q:'Which destination MAC address does PC-A put on the ARP request?',
+   opts:[MAC.BC+' (broadcast)',MAC.B+' (PC-B)',MAC.R0+' (R1)','0000.0000.0000'], a:0,
+   anim:[[{path:['PCA','SW1'],color:COL.arp,label:'ARP'}]],
+   frame:{name:'ARP request',where:'PC-A to SW1',dmac:MAC.BC,smac:MAC.A,data:'Who has 192.168.1.20? Tell 192.168.1.10'},
+   ex:'PC-A does not know PC-B\'s MAC yet, which is the whole reason for asking. So the request goes to the broadcast MAC FFFF.FFFF.FFFF, which every device on the LAN accepts.'},
+  {ctx:'The ARP request arrives at SW1 on port Fa0/1. SW1\'s MAC table is empty.',
+   q:'What does SW1 do with the frame?',
+   opts:['Learns that MAC '+MAC.A+' is on Fa0/1, then floods the frame out every other port.','Sends it only to PC-B.','Drops it, because switches do not forward broadcasts.','Sends it only to the router.'], a:0,
+   anim:[[{path:['SW1','PCB'],color:COL.arp,label:'ARP'},{path:['SW1','R1'],color:COL.arp,label:'ARP'}]],
+   fx:()=>addRow('sw1',[MAC.A,'Fa0/1']),
+   ex:'A switch learns from the source MAC of every frame it receives, so PC-A\'s MAC goes into the table on Fa0/1. A broadcast is always flooded out every port except the one it came in on. R1 receives it too, because the router is part of this LAN.'},
+  {ctx:'PC-B and R1 both received the ARP request "Who has 192.168.1.20?".',
+   q:'Who replies?',
+   opts:['Only PC-B, because the request asks for 192.168.1.20.','Both PC-B and R1.','Only R1, because routers answer every ARP request.','Nobody. ARP needs a server to answer.'], a:0,
+   anim:[[{path:['PCB','SW1'],color:COL.arp,label:'ARP'}]],
+   frame:{name:'ARP reply',where:'PC-B to SW1',dmac:MAC.A,smac:MAC.B,data:'192.168.1.20 is at '+MAC.B},
+   ex:'Only the device that owns 192.168.1.20 answers. R1 reads the request, sees it is not for its address, and ignores it. The reply is unicast: it goes straight back to PC-A\'s MAC.'},
+  {ctx:'The ARP reply enters SW1 on Fa0/2. It is addressed to '+MAC.A+'.',
+   q:'What does SW1 do now?',
+   opts:['Learns that '+MAC.B+' is on Fa0/2, then forwards the frame only out Fa0/1.','Floods the reply out every port.','Sends the reply to R1 first.','Learns nothing, because it already has one entry.'], a:0,
+   anim:[[{path:['SW1','PCA'],color:COL.arp,label:'ARP'}]],
+   fx:()=>{addRow('sw1',[MAC.B,'Fa0/2']); addRow('pcaArp',['192.168.1.20',MAC.B]);},
+   ex:'SW1 learns PC-B\'s MAC from the source field. The destination MAC is already in the table (Fa0/1), so the switch forwards the frame only there. PC-A stores the answer in its ARP cache.'},
+  {ctx:'PC-A now has everything it needs and sends the ICMP echo request (the ping).',
+   q:'Which addresses are in this frame?',
+   opts:['Dst MAC '+MAC.B+', Src MAC '+MAC.A+', Dst IP 192.168.1.20, Src IP 192.168.1.10','Dst MAC '+MAC.BC+', Dst IP 192.168.1.20','Dst MAC '+MAC.R0+', Dst IP 192.168.1.20','Dst MAC '+MAC.B+', Dst IP 192.168.1.1'], a:0,
+   anim:[[{path:['PCA','SW1','PCB'],color:COL.icmp,label:'ICMP'}]],
+   frame:{name:'ICMP echo request',where:'PC-A to PC-B',dmac:MAC.B,smac:MAC.A,dip:'192.168.1.20',sip:'192.168.1.10',data:'Echo request (ping)'},
+   ex:'Same network, so both the MAC and the IP destination point to PC-B. SW1 knows where '+MAC.B+' is, so only Fa0/2 receives the frame.'},
+  {ctx:'PC-B answers with an ICMP echo reply to PC-A.',
+   q:'How does SW1 forward the echo reply?',
+   opts:['Only out Fa0/1, because '+MAC.A+' is already in its MAC table.','Out every port, because replies are broadcasts.','To R1, because R1 checks every reply.','It cannot forward it until it sends a new ARP.'], a:0,
+   anim:[[{path:['PCB','SW1','PCA'],color:COL.reply,label:'ICMP'}]],
+   frame:{name:'ICMP echo reply',where:'PC-B to PC-A',dmac:MAC.A,smac:MAC.B,dip:'192.168.1.10',sip:'192.168.1.20',data:'Echo reply. PC-A prints: Reply from 192.168.1.20'},
+   ex:'The ping is complete. Notice that R1 was never needed: devices on the same network talk directly through the switch.'}
+ ]},
+ {name:'Ping 2', steps:[
+  {ctx:'Tables are empty again. PC-A (192.168.1.10/24, gateway 192.168.1.1) wants to ping PC-C at 192.168.2.10.',
+   q:'Is PC-C on the same network as PC-A?',
+   opts:['No. 192.168.2.10 is in 192.168.2.0/24, so PC-A sends the packet to its default gateway.','Yes. Every 192.168 address is one network.','No, so PC-A broadcasts the ping to find PC-C.','Yes, because PC-C can be reached by the router.'], a:0,
+   ex:'192.168.2.10 AND 255.255.255.0 = 192.168.2.0, which is different from PC-A\'s network 192.168.1.0. When the destination is on another network, a device always hands the packet to its default gateway.'},
+  {ctx:'PC-A needs a destination MAC for the frame, and its ARP cache is empty.',
+   q:'Which IP address does PC-A ask about in its ARP request?',
+   opts:['192.168.1.1, the default gateway (R1).','192.168.2.10, PC-C.','192.168.2.1, the far side of R1.','255.255.255.255.'], a:0,
+   anim:[[{path:['PCA','SW1'],color:COL.arp,label:'ARP'}],[{path:['SW1','PCB'],color:COL.arp,label:'ARP'},{path:['SW1','R1'],color:COL.arp,label:'ARP'}]],
+   fx:()=>addRow('sw1',[MAC.A,'Fa0/1']),
+   frame:{name:'ARP request',where:'PC-A, flooded by SW1',dmac:MAC.BC,smac:MAC.A,data:'Who has 192.168.1.1? Tell 192.168.1.10'},
+   ex:'This is the most common beginner mistake. ARP only works inside one network, and PC-C is on another one. PC-A asks for the MAC of the router, because the router is the next stop. SW1 learns PC-A\'s MAC and floods the broadcast.'},
+  {ctx:'PC-B and R1 both receive "Who has 192.168.1.1?".',
+   q:'Who answers the ARP request?',
+   opts:['R1, from its G0/0/0 interface (MAC '+MAC.R0+').','PC-C, through the router.','PC-B, because it is closer.','SW1, because it knows every MAC.'], a:0,
+   anim:[[{path:['R1','SW1','PCA'],color:COL.arp,label:'ARP'}]],
+   fx:()=>{addRow('sw1',[MAC.R0,'Gi0/1']); addRow('pcaArp',['192.168.1.1',MAC.R0]); addRow('r1Arp',['192.168.1.10',MAC.A]);},
+   frame:{name:'ARP reply',where:'R1 to PC-A',dmac:MAC.A,smac:MAC.R0,data:'192.168.1.1 is at '+MAC.R0},
+   ex:'R1 owns 192.168.1.1 on G0/0/0, so it replies. SW1 learns the router\'s MAC on Gi0/1, PC-A caches it, and R1 also caches PC-A\'s MAC from the request.'},
+  {ctx:'PC-A builds the ICMP echo request for PC-C.',
+   q:'What are the destination MAC and destination IP?',
+   opts:['Dst MAC '+MAC.R0+' (R1), Dst IP 192.168.2.10 (PC-C).','Dst MAC '+MAC.C+' (PC-C), Dst IP 192.168.2.10.','Dst MAC '+MAC.R0+', Dst IP 192.168.1.1.','Dst MAC '+MAC.BC+', Dst IP 192.168.2.10.'], a:0,
+   anim:[[{path:['PCA','SW1','R1'],color:COL.icmp,label:'ICMP'}]],
+   frame:{name:'ICMP echo request',where:'PC-A to R1',dmac:MAC.R0,smac:MAC.A,dip:'192.168.2.10',sip:'192.168.1.10',data:'Echo request (ping)'},
+   ex:'The MAC address gets the frame to the next device (R1). The IP address always names the final destination (PC-C). Keep this rule in mind: MAC is hop by hop, IP is end to end.'},
+  {ctx:'R1 removes the Ethernet frame and reads the destination IP 192.168.2.10. Its routing table shows:',
+   rt:'C    192.168.1.0/24 is directly connected, GigabitEthernet0/0/0\nC    192.168.2.0/24 is directly connected, GigabitEthernet0/0/1',
+   q:'Which interface will R1 use to send the packet?',
+   opts:['G0/0/1, because 192.168.2.0/24 is directly connected there.','G0/0/0, back toward PC-A.','None. R1 drops it because there is no default route.','Both interfaces, to be safe.'], a:0,
+   fx:()=>glow('R1'),
+   ex:'A router compares the destination IP with its routing table. 192.168.2.10 belongs to 192.168.2.0/24, which is connected to G0/0/1. "C" means directly connected. You will add other kinds of routes in Week 5.'},
+  {ctx:'R1 must put a new Ethernet frame on the 192.168.2.0/24 network, but it does not know PC-C\'s MAC yet.',
+   q:'What does R1 do?',
+   opts:['Sends its own ARP request for 192.168.2.10 out G0/0/1 and waits for PC-C to reply.','Asks PC-A for PC-C\'s MAC.','Sends the ping to FFFF.FFFF.FFFF.','Uses PC-A\'s MAC again.'], a:0,
+   anim:[[{path:['R1','SW2','PCC'],color:COL.arp,label:'ARP'}],[{path:['PCC','SW2','R1'],color:COL.arp,label:'ARP'}]],
+   fx:()=>{addRow('sw2',[MAC.R1,'Gi0/1']); addRow('sw2',[MAC.C,'Fa0/1']); addRow('r1Arp',['192.168.2.10',MAC.C]);},
+   frame:{name:'ARP reply',where:'PC-C to R1',dmac:MAC.R1,smac:MAC.C,data:'192.168.2.10 is at '+MAC.C},
+   ex:'Each network does its own ARP. This is why the very first ping in Packet Tracer often shows "Request timed out" once: the ARP exchanges finish while the first echo waits. Later pings succeed immediately.'},
+  {ctx:'R1 now forwards the echo request to PC-C.',
+   q:'Compared to the frame PC-A sent, what changed?',
+   opts:['The MAC addresses changed (now from R1 G0/0/1 to PC-C). The IP addresses stayed the same.','The IP addresses changed. The MAC addresses stayed the same.','Nothing changed.','Both the MAC and IP addresses changed.'], a:0,
+   anim:[[{path:['R1','SW2','PCC'],color:COL.icmp,label:'ICMP'}]],
+   frame:{name:'ICMP echo request',where:'R1 to PC-C',dmac:MAC.C,smac:MAC.R1,dip:'192.168.2.10',sip:'192.168.1.10',data:'Echo request (ping). Same IP header, new Ethernet frame.'},
+   ex:'A router builds a brand new frame for every network it sends into. Source and destination IP stay the same from end to end (NAT, in Week 4, is the exception).'},
+  {ctx:'PC-C sends the echo reply back to 192.168.1.10.',
+   q:'Which destination MAC does PC-C put on the reply?',
+   opts:[MAC.R1+', R1\'s G0/0/1, because PC-A is on another network.',MAC.A+', PC-A\'s MAC.',MAC.BC+', broadcast.',MAC.R0+', R1\'s G0/0/0.'], a:0,
+   anim:[[{path:['PCC','SW2','R1','SW1','PCA'],color:COL.reply,label:'ICMP'}]],
+   frame:{name:'ICMP echo reply',where:'PC-C to R1, then R1 to PC-A',dmac:MAC.R1+' then '+MAC.A,smac:MAC.C+' then '+MAC.R0,dip:'192.168.1.10',sip:'192.168.2.10',data:'Echo reply. PC-A prints: Reply from 192.168.2.10'},
+   ex:'PC-C does the same math PC-A did and sends the reply to its own gateway. It already learned R1\'s MAC from R1\'s ARP request. R1 rebuilds the frame again for the 192.168.1.0 network and PC-A receives the reply.'}
+ ]}
+];
+const TOTAL=S.reduce((n,s)=>n+s.steps.length,0);
+let cur=0, step=0, tried=false, results=[S[0].steps.map(()=>null),S[1].steps.map(()=>null)];
+
+function score(){ return results.flat().filter(x=>x===true).length; }
+function renderStep(){
+  const sc=S[cur], st=sc.steps[step];
+  $('stepno').textContent=`${sc.name} · step ${step+1} of ${sc.steps.length}`;
+  $('prog').style.width=(step/sc.steps.length*100)+'%';
+  $('scorePill').textContent=`Score ${score()} / ${TOTAL}`;
+  // shuffle options for display, keep correct index
+  const order=st.opts.map((_,i)=>i).sort(()=>Math.random()-.5);
+  $('stepBody').innerHTML=`<p class="ctx">${st.ctx}</p>${st.rt?`<div class="rt">${st.rt}</div>`:''}<div class="question">${st.q}</div><div class="opts">${order.map(i=>`<button class="opt" data-i="${i}">${st.opts[i]}</button>`).join('')}</div>`;
+  $('fb').innerHTML=''; $('nextBtn').disabled=true; tried=false;
+  $('stepBody').querySelectorAll('.opt').forEach(b=>b.addEventListener('click',()=>choose(b)));
+}
+async function choose(btn){
+  const st=S[cur].steps[step]; const i=+btn.dataset.i;
+  if(i!==st.a){
+    btn.classList.add('wrong'); btn.disabled=true;
+    if(!tried){ results[cur][step]=false; tried=true; }
+    $('fb').innerHTML='<div class="feedback bad">Not quite. Think about what each device actually knows at this moment, then try another answer.</div>';
+    $('scorePill').textContent=`Score ${score()} / ${TOTAL}`;
+    return;
+  }
+  if(!tried){ results[cur][step]=true; tried=true; }
+  btn.classList.add('right');
+  $('stepBody').querySelectorAll('.opt').forEach(b=>b.disabled=true);
+  $('scorePill').textContent=`Score ${score()} / ${TOTAL}`;
+  $('fb').innerHTML=`<div class="feedback ok">${results[cur][step]?'Correct on the first try.':'Correct.'} ${st.ex}</div>`;
+  if(st.anim) await play(st.anim);
+  if(st.fx) st.fx();
+  if(st.frame) showFrame(st.frame);
+  const last=step===S[cur].steps.length-1;
+  $('nextBtn').textContent= last ? (cur===0?'Go to Ping 2':'See your result') : 'Next step';
+  $('nextBtn').disabled=false; $('nextBtn').focus();
+  if(last){ $('prog').style.width='100%'; $('done'+cur).textContent='✓'; }
+}
+$('nextBtn').addEventListener('click',()=>{
+  if(step<S[cur].steps.length-1){ step++; renderStep(); return; }
+  if(cur===0 && results[1].some(x=>x===null)){ selectScenario(1); return; }
+  if(results.flat().every(x=>x!==null)) showFinal(); else selectScenario(results[0].some(x=>x===null)?0:1);
+});
+function showFinal(){
+  const s=score(); $('final').hidden=false; $('finalScore').textContent=s; $('finalOf').textContent=`/ ${TOTAL} correct on the first try`;
+  let msg = s>=13 ? 'Excellent. You can explain ARP, MAC learning and default gateways. Try the same pings in Packet Tracer Simulation mode for Assignment 1.1.'
+          : s>=9 ? 'Good start. Restart the ping where you missed the most steps and read each explanation again before Assignment 1.1.'
+          : 'Review the Week 1 reading on ARP and default gateways, then restart both pings. The ideas will click on the second pass.';
+  $('finalMsg').innerHTML=`<div class="feedback ${s>=9?'ok':'info'}">${msg}</div>`;
+  $('final').scrollIntoView({behavior:reduce?'auto':'smooth'});
+  if(hasGSAP) gsap.from('#final',{y:12,opacity:0,duration:.4});
+}
+function selectScenario(k){
+  cur=k; step=0; resetTables(); renderTables(); showFrame(null);
+  results[k]=S[k].steps.map(()=>null); $('done'+k).textContent='';
+  [0,1].forEach(i=>$('tab'+i).setAttribute('aria-selected',i===k?'true':'false'));
+  renderStep();
+}
+$('tab0').addEventListener('click',()=>selectScenario(0));
+$('tab1').addEventListener('click',()=>selectScenario(1));
+$('restartBtn').addEventListener('click',()=>selectScenario(cur));
+drawTopo(); selectScenario(0);
+</script>
+
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+
+</body>
+</html>
