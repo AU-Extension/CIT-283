@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CIT-283 Interactives</title>
+<meta name="description" content="Interactive simulations for CIT-283 Advanced Network Administration at Atlantis University.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  .weeks{display:grid;gap:16px}
+  @media(min-width:760px){.weeks{grid-template-columns:1fr 1fr}}
+  .wk h2{font-size:18px;margin:6px 0 12px}
+  .wk a.item{display:flex;justify-content:space-between;gap:12px;align-items:center;text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;transition:border-color .15s,background .15s}
+  .wk a.item:hover{border-color:var(--au-red);background:var(--au-red-soft)}
+  .wk a.item span.k{font-size:12px;color:var(--muted);white-space:nowrap}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+<a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University"><img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University"></a>
+<div class="crumb"><b>CIT-283</b> Advanced Network Administration · Course interactives</div></div></header>
+<main class="wrap">
+<section class="hero"><span class="eyebrow">8 weeks · Beginner</span><h1>CIT-283 course interactives</h1>
+<p class="lede">Two interactive simulations per week. The explorer shows how a concept works; the challenge scores whether you can apply it before you build it in Packet Tracer, Hyper-V, or Azure.</p></section>
+<div class="weeks">
+<section class="card wk"><span class="eyebrow">Week 1</span><h2>Network foundations and Cisco Packet Tracer</h2><a class="item" href="week1/ipv4-binary-explorer.html">IPv4 binary explorer<span class="k">Explorer</span></a><a class="item" href="week1/packet-journey.html">Packet journey simulator<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 2</span><h2>Subnetting and IPv4 addressing plans</h2><a class="item" href="week2/subnet-visualizer.html">Subnet visualizer<span class="k">Explorer</span></a><a class="item" href="week2/subnetting-drill.html">Subnetting speed drill<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 3</span><h2>VLANs, trunking, and inter-VLAN routing</h2><a class="item" href="week3/vlan-port-mapper.html">VLAN port mapper<span class="k">Explorer</span></a><a class="item" href="week3/trunk-intervlan-sim.html">Trunk and inter-VLAN routing challenge<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 4</span><h2>Designing small office networks</h2><a class="item" href="week4/dhcp-nat-walkthrough.html">DHCP and NAT walkthrough<span class="k">Explorer</span></a><a class="item" href="week4/office-network-designer.html">Small office network designer<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 5</span><h2>Headquarters and branches with static routing</h2><a class="item" href="week5/routing-table-explorer.html">Routing table explorer<span class="k">Explorer</span></a><a class="item" href="week5/static-route-builder.html">Static route builder<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 6</span><h2>Dynamic routing with OSPF and troubleshooting</h2><a class="item" href="week6/ospf-path-visualizer.html">OSPF path visualizer<span class="k">Explorer</span></a><a class="item" href="week6/troubleshooting-challenge.html">Network troubleshooting challenge<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 7</span><h2>Virtual networks with Hyper-V</h2><a class="item" href="week7/hyperv-vswitch-explorer.html">Hyper-V virtual switch explorer<span class="k">Explorer</span></a><a class="item" href="week7/virtual-lab-builder.html">Virtual lab builder challenge<span class="k">Challenge</span></a></section>
+<section class="card wk"><span class="eyebrow">Week 8</span><h2>Azure networks and final project</h2><a class="item" href="week8/azure-vnet-planner.html">Azure VNet planner<span class="k">Explorer</span></a><a class="item" href="week8/nsg-rule-evaluator.html">NSG rule evaluator<span class="k">Challenge</span></a></section>
+</div>
+</main>
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+</body>
+</html>
