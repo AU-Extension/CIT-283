@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VLAN Port Mapper</title>
+<meta name="description" content="CIT-283 Week 3 interactive: assign switch ports to VLANs, send broadcasts, and see the matching Cisco IOS commands and show vlan brief output.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.stage{width:100%;height:auto;display:block}
+  .vlan-key{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
+  .vlan-key span{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:3px 10px;border-radius:999px;background:#F1F3F6}
+  .vlan-key i{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .pc-table{width:100%;border-collapse:collapse;font-size:14px}
+  .pc-table td,.pc-table th{padding:6px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  .pc-table th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .pc-table select{width:100%;max-width:190px}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .tab{font:inherit;font-size:14px;font-weight:600;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
+  .tab[aria-selected=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .goal{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line);font-size:15px}
+  .goal:last-child{border-bottom:none}
+  .tick{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid #CBD2DA;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff}
+  .goal.done .tick{background:var(--ok);border-color:var(--ok)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:15px;cursor:pointer}
+  .toggle input{width:18px;height:18px}
+  .cli{max-height:440px}
+  .explain dt{font-family:var(--mono);font-size:13px;font-weight:600;margin-top:10px}
+  .explain dd{margin:2px 0 0 0;color:var(--ink-2);font-size:14px}
+  .q{padding:12px 0;border-bottom:1px solid var(--line)}
+  .q:last-child{border-bottom:none}
+  .q p{margin:0 0 8px;font-weight:500}
+  .q .opts{display:flex;flex-wrap:wrap;gap:8px}
+  .q .feedback{margin-top:8px}
+  .section-gap{margin-top:16px}
+  #result{min-height:48px}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 3 · Interactive A</div>
+  </div>
+</header>
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 3 · Explorer</span>
+    <h1>VLAN port mapper</h1>
+    <p class="lede">A switch sends a broadcast to every port in the same VLAN and to no other port. Assign the eight office PCs to VLANs, send broadcasts, and watch the broadcast domains change. The Cisco IOS commands and the <span class="mono">show vlan brief</span> output update as you work.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Every PC starts in VLAN 1, the default VLAN, so the whole switch is one broadcast domain. Press <b>Broadcast</b> next to any PC to see who receives it.</li>
+      <li>Change the VLAN of each PC with its drop-down list (you can also click a port on the switch drawing to jump to that PC).</li>
+      <li>Send broadcasts again. Only PCs in the same VLAN receive them.</li>
+      <li>Turn on <b>Park and shut down unused ports</b> to place ports Fa0/9 to Fa0/24 and Gi0/1 to Gi0/2 in VLAN 99 and disable them.</li>
+      <li>Open the <b>IOS commands</b> and <b>show vlan brief</b> tabs to read the configuration that matches your choices. Complete the four goals and the quick check at the bottom.</li>
+    </ol>
+  </details>
+
+  <section class="card">
+    <h2>Office switch SW1 (Cisco 2960-24TT)</h2>
+    <svg class="stage" id="stage" viewBox="0 0 1000 390" role="img" aria-label="Switch with eight PCs connected to ports Fa0/1 to Fa0/8">
+      <g id="links"></g>
+      <g id="pcs"></g>
+      <g id="switch"></g>
+      <g id="dots"></g>
+    </svg>
+    <div class="vlan-key" id="key"></div>
+  </section>
+
+  <div class="grid two section-gap">
+    <section class="card">
+      <h2>Assign ports to VLANs</h2>
+      <div class="scroll-x">
+        <table class="pc-table" aria-label="PC to VLAN assignments">
+          <thead><tr><th>PC</th><th>Port</th><th>VLAN</th><th>Test</th></tr></thead>
+          <tbody id="pcRows"></tbody>
+        </table>
+      </div>
+      <div class="row section-gap">
+        <label class="toggle"><input type="checkbox" id="parking"> Park and shut down unused ports (VLAN 99)</label>
+      </div>
+      <div class="row section-gap">
+        <button class="btn" id="resetBtn">Reset to factory default</button>
+        <span class="pill" id="domains">Broadcast domains in use: 1</span>
+      </div>
+      <div id="result" class="feedback info" aria-live="polite">Press Broadcast next to a PC to send an ARP style broadcast frame (destination MAC FFFF.FFFF.FFFF).</div>
+    </section>
+
+    <aside class="card">
+      <h2>Goals</h2>
+      <div id="goals"></div>
+      <p style="margin:12px 0 0;font-size:14px;color:var(--muted)">Goals check themselves as you change the switch.</p>
+    </aside>
+  </div>
+
+  <section class="card section-gap">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="cmd" id="tab-cmd">IOS commands</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="show" id="tab-show">show vlan brief</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="exp" id="tab-exp">What each command does</button>
+    </div>
+    <div id="panel-cmd"><pre class="cli" id="cmdOut"></pre><p style="font-size:14px;color:var(--muted);margin:8px 0 0">Lines that start with <span class="mono">!</span> are comments. IOS ignores them, so they are safe to paste.</p></div>
+    <div id="panel-show" hidden><pre class="cli" id="showOut"></pre><p style="font-size:14px;color:var(--muted);margin:8px 0 0">Output as Packet Tracer displays it. Ports set to shut down still appear in their VLAN.</p></div>
+    <div id="panel-exp" hidden>
+      <dl class="explain">
+        <dt>enable / configure terminal</dt><dd>Move from user mode to privileged mode, then to global configuration mode, where changes are made.</dd>
+        <dt>vlan 10</dt><dd>Creates VLAN 10 (or opens it if it exists) and enters VLAN configuration mode.</dd>
+        <dt>name Sales</dt><dd>Gives the VLAN a readable name. Names help the next technician understand the design.</dd>
+        <dt>interface FastEthernet0/1</dt><dd>Selects one port. <span class="mono">interface range FastEthernet0/1 - 2</span> selects several ports at once, which saves typing.</dd>
+        <dt>switchport mode access</dt><dd>Makes the port an access port: it belongs to exactly one VLAN and connects an end device such as a PC or printer.</dd>
+        <dt>switchport access vlan 10</dt><dd>Places the access port in VLAN 10. Frames from the PC on this port are now part of VLAN 10.</dd>
+        <dt>shutdown</dt><dd>Disables the port. Unused ports are parked in an unused VLAN and shut down so nobody can plug in and join a real VLAN.</dd>
+        <dt>end / copy running-config startup-config</dt><dd>Return to privileged mode and save the configuration so it survives a reload.</dd>
+        <dt>show vlan brief</dt><dd>Lists every VLAN, its name, its status and the access ports assigned to it. It is the first command to run when checking VLAN work.</dd>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card section-gap">
+    <h2>Quick check</h2>
+    <div id="quiz"></div>
+    <div class="score section-gap"><span>Quick check score:</span><span class="big" id="qScore">0 / 5</span></div>
+  </section>
+</main>
+
+<script>
+const hasGSAP = typeof window.gsap !== 'undefined';
+const VLANS = {
+  1:{name:'default', color:'#64748B'},
+  10:{name:'Sales', color:'#2563EB'},
+  20:{name:'Accounting', color:'#15803D'},
+  30:{name:'Guest', color:'#B45309'},
+  99:{name:'Parking', color:'#374151'}
+};
+const PC_VLANS = [1,10,20,30,99];
+const pcs = Array.from({length:8}, (_,i) => ({name:'PC'+(i+1), port:i+1, vlan:1}));
+let parking = false;
+const NS = 'http://www.w3.org/2000/svg';
+const portX = n => 70 + (n-1)*34;          // Fa0/n left edge
+const GI_X = [905, 945];
+const PORT_Y = 285;
+const pcCx = i => 75 + i*121;
+const lane = i => 140 + i*14;
+
+function el(tag, attrs, parent){
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function pathPoints(i){
+  const cx = pcCx(i), px = portX(i+1)+14;
+  return [[cx,112],[cx,lane(i)],[px,lane(i)],[px,PORT_Y]];
+}
+
+/* ---------- drawing ---------- */
+function drawStatic(){
+  const sw = document.getElementById('switch');
+  el('rect',{x:50,y:262,width:935,height:82,rx:10,fill:'#1F2937'},sw);
+  const t = el('text',{x:62,y:279,fill:'#E5E7EB','font-size':12,'font-weight':600},sw); t.textContent='SW1  Catalyst 2960-24TT';
+  for (let n=1;n<=24;n++){
+    const r = el('rect',{x:portX(n),y:PORT_Y,width:28,height:26,rx:4,id:'port'+n,stroke:'#0B1220','stroke-width':1.5,tabindex:n<=8?-1:-1},sw);
+    r.style.cursor = n<=8 ? 'pointer':'default';
+    if (n<=8) r.addEventListener('click',()=>document.getElementById('sel'+(n-1)).focus());
+    const lbl = el('text',{x:portX(n)+14,y:PORT_Y+40,fill:'#CBD5E1','font-size':10,'text-anchor':'middle'},sw); lbl.textContent = n;
+    el('line',{x1:portX(n)+5,y1:PORT_Y+5,x2:portX(n)+23,y2:PORT_Y+21,stroke:'#F87171','stroke-width':2.5,id:'x'+n,visibility:'hidden'},sw);
+  }
+  GI_X.forEach((x,k)=>{
+    el('rect',{x:x,y:PORT_Y,width:28,height:26,rx:4,id:'gi'+(k+1),stroke:'#0B1220','stroke-width':1.5},sw);
+    const lbl = el('text',{x:x+14,y:PORT_Y+40,fill:'#CBD5E1','font-size':10,'text-anchor':'middle'},sw); lbl.textContent='Gi'+(k+1);
+    el('line',{x1:x+5,y1:PORT_Y+5,x2:x+23,y2:PORT_Y+21,stroke:'#F87171','stroke-width':2.5,id:'gix'+(k+1),visibility:'hidden'},sw);
+  });
+  const fa = el('text',{x:70,y:376,fill:'#6B7280','font-size':12},sw); fa.textContent='FastEthernet0/1 to 0/24';
+  const gi = el('text',{x:985,y:376,fill:'#6B7280','font-size':12,'text-anchor':'end'},sw); gi.textContent='GigabitEthernet0/1 to 0/2';
+
+  const links = document.getElementById('links'), pg = document.getElementById('pcs');
+  pcs.forEach((p,i)=>{
+    el('polyline',{points:pathPoints(i).map(a=>a.join(',')).join(' '),fill:'none',stroke:'#94A3B8','stroke-width':2.5,id:'link'+i,'stroke-linejoin':'round'},links);
+    const g = el('g',{id:'pc'+i},pg);
+    el('rect',{x:pcCx(i)-30,y:30,width:60,height:42,rx:5,fill:'#fff',stroke:'#94A3B8','stroke-width':2.5,id:'mon'+i},g);
+    el('rect',{x:pcCx(i)-24,y:36,width:48,height:30,rx:2,fill:'#E2E8F0',id:'scr'+i},g);
+    el('rect',{x:pcCx(i)-6,y:72,width:12,height:8,fill:'#94A3B8'},g);
+    el('rect',{x:pcCx(i)-18,y:80,width:36,height:5,rx:2,fill:'#94A3B8'},g);
+    const nm = el('text',{x:pcCx(i),y:20,'text-anchor':'middle','font-size':14,'font-weight':700,fill:'#16181D'},g); nm.textContent=p.name;
+    const vt = el('text',{x:pcCx(i),y:102,'text-anchor':'middle','font-size':12,'font-weight':600,id:'vt'+i},g); vt.textContent='VLAN 1';
+  });
+}
+
+function render(){
+  pcs.forEach((p,i)=>{
+    const c = VLANS[p.vlan].color;
+    document.getElementById('port'+p.port).setAttribute('fill', c);
+    document.getElementById('link'+i).setAttribute('stroke', c);
+    document.getElementById('mon'+i).setAttribute('stroke', c);
+    const vt = document.getElementById('vt'+i); vt.textContent = 'VLAN '+p.vlan; vt.setAttribute('fill', c);
+    document.getElementById('x'+p.port).setAttribute('visibility', p.vlan===99 && parking ? 'visible':'hidden');
+  });
+  for (let n=9;n<=24;n++){
+    document.getElementById('port'+n).setAttribute('fill', parking ? VLANS[99].color : '#94A3B8');
+    document.getElementById('x'+n).setAttribute('visibility', parking ? 'visible':'hidden');
+  }
+  [1,2].forEach(k=>{
+    document.getElementById('gi'+k).setAttribute('fill', parking ? VLANS[99].color : '#94A3B8');
+    document.getElementById('gix'+k).setAttribute('visibility', parking ? 'visible':'hidden');
+  });
+  document.getElementById('cmdOut').textContent = genConfig(pcs, parking).join('\n');
+  document.getElementById('showOut').textContent = showVlanBrief(pcs, parking);
+  document.getElementById('domains').textContent = 'Broadcast domains in use: ' + domainCount(pcs);
+  renderGoals();
+}
+
+/* ---------- pure logic (tested) ---------- */
+function receivers(list, srcIdx, park){
+  const src = list[srcIdx];
+  if (park && src.vlan === 99) return [];          // shut down port: nothing leaves it
+  return list.filter((p,i)=> i!==srcIdx && p.vlan===src.vlan && !(park && p.vlan===99)).map(p=>p.name);
+}
+function domainCount(list){ return new Set(list.map(p=>p.vlan)).size; }
+function runs(list){
+  const out=[]; let cur=null;
+  list.forEach(p=>{
+    if (cur && cur.vlan===p.vlan && cur.end===p.port-1){ cur.end=p.port; }
+    else { cur={vlan:p.vlan,start:p.port,end:p.port}; out.push(cur); }
+  });
+  return out;
+}
+function genConfig(list, park){
+  const L = ['Switch> enable','Switch# configure terminal'];
+  const used = [...new Set(list.map(p=>p.vlan))].filter(v=>v!==1);
+  if (park && !used.includes(99)) used.push(99);
+  used.sort((a,b)=>a-b);
+  if (used.length) L.push('Switch(config)# ! Create and name the VLANs');
+  used.forEach(v=>{ L.push('Switch(config)# vlan '+v, 'Switch(config-vlan)# name '+VLANS[v].name, 'Switch(config-vlan)# exit'); });
+  L.push('Switch(config)# ! Assign the PC ports');
+  runs(list).forEach(r=>{
+    const range = r.start!==r.end;
+    const ifname = range ? 'interface range FastEthernet0/'+r.start+' - '+r.end : 'interface FastEthernet0/'+r.start;
+    const pr = range ? 'Switch(config-if-range)# ' : 'Switch(config-if)# ';
+    L.push('Switch(config)# '+ifname, pr+'switchport mode access');
+    if (r.vlan!==1) L.push(pr+'switchport access vlan '+r.vlan);
+    else L.push(pr+'! no access vlan command needed, VLAN 1 is the default');
+    if (park && r.vlan===99) L.push(pr+'shutdown');
+    L.push(pr+'exit');
+  });
+  if (park){
+    L.push('Switch(config)# ! Park and disable every unused port');
+    ['interface range FastEthernet0/9 - 24','interface range GigabitEthernet0/1 - 2'].forEach(ifn=>{
+      L.push('Switch(config)# '+ifn,'Switch(config-if-range)# switchport mode access','Switch(config-if-range)# switchport access vlan 99','Switch(config-if-range)# shutdown','Switch(config-if-range)# exit');
+    });
+  }
+  L.push('Switch(config)# end','Switch# copy running-config startup-config');
+  return L;
+}
+function showVlanBrief(list, park){
+  const ports = {};
+  const add = (v,p)=>{ (ports[v]=ports[v]||[]).push(p); };
+  list.forEach(p=>add(p.vlan,'Fa0/'+p.port));
+  for (let n=9;n<=24;n++) add(park?99:1,'Fa0/'+n);
+  add(park?99:1,'Gig0/1'); add(park?99:1,'Gig0/2');
+  const ids = new Set([1, ...list.map(p=>p.vlan)]); if (park) ids.add(99);
+  const sorted = [...ids].sort((a,b)=>a-b);
+  let out = 'Switch# show vlan brief\n\nVLAN Name                             Status    Ports\n---- -------------------------------- --------- -------------------------------\n';
+  const line = (id,name,pl,st)=>{
+    const chunks=[]; for(let i=0;i<pl.length;i+=4) chunks.push(pl.slice(i,i+4).join(', '));
+    if (!chunks.length) chunks.push('');
+    let s = String(id).padEnd(4)+' '+name.padEnd(32)+' '+(st||'active').padEnd(9)+' '+chunks[0]+'\n';
+    for (let i=1;i<chunks.length;i++) s += ' '.repeat(48)+chunks[i]+'\n';
+    return s;
+  };
+  sorted.forEach(v=>{ out += line(v, VLANS[v].name, ports[v]||[]); });
+  [['1002','fddi-default'],['1003','token-ring-default'],['1004','fddinet-default'],['1005','trnet-default']].forEach(([i,n])=>{ out += line(i,n,[],'act/unsup'); });
+  return out.replace(/[ \t]+\n/g,'\n');
+}
+const GOALS = [
+  {text:'Put PC1 and PC2 in VLAN 10 (Sales).', ok:()=>pcs[0].vlan===10&&pcs[1].vlan===10},
+  {text:'Put PC3 and PC4 in VLAN 20 (Accounting).', ok:()=>pcs[2].vlan===20&&pcs[3].vlan===20},
+  {text:'Put PC5, PC6, PC7 and PC8 in VLAN 30 (Guest), then send a broadcast from PC8.', ok:()=>pcs.slice(4).every(p=>p.vlan===30)&&guestTested},
+  {text:'Park and shut down every unused port in VLAN 99.', ok:()=>parking}
+];
+let lastBroadcast = -1;
+let guestTested = false;
+function renderGoals(){
+  const box = document.getElementById('goals'); box.innerHTML='';
+  GOALS.forEach(g=>{
+    const d = document.createElement('div'); const done = g.ok();
+    d.className = 'goal'+(done?' done':'');
+    d.innerHTML = '<span class="tick" aria-hidden="true">'+(done?'✓':'')+'</span><span>'+g.text+(done?' <span class="pill" style="background:var(--ok-soft);color:#14532D">done</span>':'')+'</span>';
+    box.appendChild(d);
+  });
+}
+
+/* ---------- controls ---------- */
+function buildRows(){
+  const tb = document.getElementById('pcRows');
+  pcs.forEach((p,i)=>{
+    const tr = document.createElement('tr');
+    const opts = PC_VLANS.map(v=>'<option value="'+v+'">'+v+' '+VLANS[v].name+'</option>').join('');
+    tr.innerHTML = '<td><span class="swatch" id="sw'+i+'"></span>'+p.name+'</td><td class="mono">Fa0/'+p.port+'</td>'+
+      '<td><select id="sel'+i+'" aria-label="VLAN for '+p.name+'">'+opts+'</select></td>'+
+      '<td><button class="btn" id="bc'+i+'" aria-label="Send a broadcast from '+p.name+'">Broadcast</button></td>';
+    tb.appendChild(tr);
+    tr.querySelector('select').addEventListener('change',e=>{ p.vlan=+e.target.value; lastBroadcast=-1; if (i>=4) guestTested=false; syncSwatches(); render(); });
+    tr.querySelector('button').addEventListener('click',()=>broadcast(i));
+  });
+  syncSwatches();
+}
+function syncSwatches(){ pcs.forEach((p,i)=>{ document.getElementById('sw'+i).style.background=VLANS[p.vlan].color; document.getElementById('sel'+i).value=p.vlan; }); }
+
+function broadcast(i){
+  const src = pcs[i];
+  const rx = receivers(pcs, i, parking);
+  lastBroadcast = i;
+  if (i===7 && pcs.slice(4).every(p=>p.vlan===30)) guestTested = true;
+  const res = document.getElementById('result');
+  if (parking && src.vlan===99){
+    res.className='feedback bad';
+    res.innerHTML = src.name+' is on a port that is shut down (VLAN 99). Nothing leaves that port. This is exactly why unused ports are parked and disabled.';
+  } else {
+    const missed = pcs.filter((p,k)=>k!==i && !rx.includes(p.name)).map(p=>p.name);
+    res.className='feedback ok';
+    res.innerHTML = '<b>'+src.name+'</b> (VLAN '+src.vlan+') sent a broadcast. '+
+      (rx.length ? 'Received by: <b>'+rx.join(', ')+'</b>. ' : 'No other PC is in VLAN '+src.vlan+', so nobody received it. ')+
+      (missed.length ? 'Not received by: '+missed.join(', ')+' (different VLAN'+(parking?' or shut down':'')+').' : 'Every PC received it because they all share one VLAN.');
+  }
+  animate(i, rx);
+  renderGoals();
+}
+
+function animate(i, rxNames){
+  const dots = document.getElementById('dots'); dots.innerHTML='';
+  pcs.forEach((p,k)=>{ document.getElementById('scr'+k).setAttribute('fill','#E2E8F0'); document.getElementById('pc'+k).style.opacity = 1; });
+  const rxIdx = pcs.map((p,k)=>rxNames.includes(p.name)?k:-1).filter(k=>k>=0);
+  const color = VLANS[pcs[i].vlan].color;
+  const finish = ()=>{
+    rxIdx.forEach(k=>document.getElementById('scr'+k).setAttribute('fill', color));
+    pcs.forEach((p,k)=>{ if (k!==i && !rxIdx.includes(k)) document.getElementById('pc'+k).style.opacity = .35; });
+  };
+  const blocked = parking && pcs[i].vlan===99;
+  if (!hasGSAP){ finish(); return; }
+  const up = pathPoints(i);
+  const tl = gsap.timeline({onComplete:finish});
+  const d0 = el('circle',{r:8,fill:color,stroke:'#fff','stroke-width':2,cx:up[0][0],cy:up[0][1]},dots);
+  for (let s=1;s<up.length;s++) tl.to(d0,{attr:{cx:up[s][0],cy:up[s][1]},duration:.22,ease:'none'});
+  if (blocked){ tl.to(d0,{attr:{r:14},opacity:0,duration:.4}); return; }
+  tl.to(d0,{attr:{cx:up[3][0],cy:PORT_Y+13},duration:.15});
+  tl.to(d0,{opacity:0,duration:.1});
+  const t0 = tl.duration();
+  rxIdx.forEach(k=>{
+    const pts = pathPoints(k).slice().reverse();
+    const d = el('circle',{r:8,fill:color,stroke:'#fff','stroke-width':2,cx:up[3][0],cy:PORT_Y+13,opacity:0},dots);
+    const sub = gsap.timeline();
+    sub.set(d,{opacity:1});
+    sub.to(d,{attr:{cx:pts[0][0],cy:PORT_Y+13},duration:.35,ease:'power1.inOut'});
+    for (let s=1;s<pts.length;s++) sub.to(d,{attr:{cx:pts[s][0],cy:pts[s][1]},duration:.2,ease:'none'});
+    sub.to(d,{opacity:0,duration:.15});
+    tl.add(sub, t0);
+  });
+}
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected', x===t));
+  ['cmd','show','exp'].forEach(k=>document.getElementById('panel-'+k).hidden = (k!==t.dataset.tab));
+}));
+document.getElementById('parking').addEventListener('change',e=>{ parking=e.target.checked; lastBroadcast=-1; render(); });
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  pcs.forEach(p=>p.vlan=1); parking=false; guestTested=false; document.getElementById('parking').checked=false; lastBroadcast=-1;
+  document.getElementById('dots').innerHTML=''; pcs.forEach((p,k)=>{document.getElementById('pc'+k).style.opacity=1;document.getElementById('scr'+k).setAttribute('fill','#E2E8F0');});
+  const res=document.getElementById('result'); res.className='feedback info'; res.textContent='Switch reset. Every port is back in VLAN 1.';
+  syncSwatches(); render();
+});
+
+/* ---------- key ---------- */
+document.getElementById('key').innerHTML = PC_VLANS.map(v=>'<span><i style="background:'+VLANS[v].color+'"></i>VLAN '+v+' '+VLANS[v].name+'</span>').join('') + '<span><i style="background:#94A3B8"></i>Unused port</span>';
+
+/* ---------- quiz ---------- */
+const QUIZ = [
+  {q:'PC1 is in VLAN 10 and PC5 is in VLAN 30 on the same switch. Can PC1 ping PC5 with only this switch?', o:['Yes, they share a switch','No, a router (or Layer 3 switch) is needed between VLANs'], a:1, e:'Each VLAN is a separate network. Traffic between VLANs must be routed. You will add a router in Interactive B.'},
+  {q:'How many broadcast domains exist when the PCs use VLANs 1, 10 and 20?', o:['1','2','3','8'], a:2, e:'Each VLAN in use is its own broadcast domain, so three VLANs means three broadcast domains.'},
+  {q:'Which command places an access port in VLAN 20?', o:['vlan 20','switchport access vlan 20','switchport trunk vlan 20','name 20'], a:1, e:'switchport access vlan 20 is entered in interface configuration mode after switchport mode access.'},
+  {q:'Why are unused ports placed in VLAN 99 and shut down?', o:['To make the switch faster','So someone who plugs in cannot join a real VLAN','Because VLAN 1 cannot hold ports','It is required for trunks'], a:1, e:'Parking and disabling unused ports is a simple security habit. A visitor who plugs a laptop in gets nothing.'},
+  {q:'Which command lists VLANs and the access ports assigned to each one?', o:['show ip interface brief','show vlan brief','show running-config vlan','show interfaces trunk'], a:1, e:'show vlan brief is the quickest way to confirm your port assignments.'}
+];
+const answered = {};
+function buildQuiz(){
+  const box = document.getElementById('quiz');
+  QUIZ.forEach((item,qi)=>{
+    const d = document.createElement('div'); d.className='q';
+    d.innerHTML = '<p>'+(qi+1)+'. '+item.q+'</p><div class="opts"></div><div class="fb" aria-live="polite"></div>';
+    const opts = d.querySelector('.opts');
+    item.o.forEach((txt,oi)=>{
+      const b = document.createElement('button'); b.className='btn'; b.textContent=txt;
+      b.addEventListener('click',()=>{
+        if (answered[qi]!==undefined) return;
+        answered[qi] = oi===item.a;
+        opts.querySelectorAll('button').forEach((x,xi)=>{ x.disabled=true; if (xi===item.a){x.style.borderColor='var(--ok)';x.style.background='var(--ok-soft)';} });
+        if (oi!==item.a){ b.style.borderColor='var(--bad)'; b.style.background='var(--bad-soft)'; }
+        d.querySelector('.fb').innerHTML = '<div class="feedback '+(oi===item.a?'ok':'bad')+'">'+(oi===item.a?'Correct. ':'Not quite. ')+item.e+'</div>';
+        document.getElementById('qScore').textContent = Object.values(answered).filter(Boolean).length+' / '+QUIZ.length;
+      });
+      opts.appendChild(b);
+    });
+    box.appendChild(d);
+  });
+}
+
+drawStatic(); buildRows(); render(); buildQuiz();
+window.__vpm = {receivers, genConfig, showVlanBrief, domainCount, pcs};
+</script>
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+</body>
+</html>

@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DHCP and NAT Walkthrough</title>
+<meta name="description" content="CIT-283 Week 4 explorer: step through DHCP DORA and watch PAT translate private addresses to one public address.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+  .tabs .btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .topo{width:100%;height:auto;display:block}
+  .topo .lnk{stroke:#9AA3AF;stroke-width:4}
+  .topo .node rect{fill:#fff;stroke:#16181D;stroke-width:2}
+  .topo .node text{font-size:20px;font-weight:700;fill:var(--ink)}
+  .topo .node text.sub{font-size:14px;font-weight:500;fill:var(--ink-2);font-family:var(--mono)}
+  .topo .zone{font-size:14px;font-weight:700;letter-spacing:.06em;fill:var(--muted)}
+  .pcard{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:12px}
+  .pcard .ph{background:var(--ink);color:#fff;padding:8px 12px;font-weight:600;font-size:14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .pcard table{width:100%;border-collapse:collapse;font-size:13px}
+  .pcard td{padding:6px 12px;border-top:1px solid var(--line);vertical-align:top}
+  .pcard td:first-child{color:var(--muted);width:42%}
+  .pcard td.mono{font-family:var(--mono)}
+  .pcard td.chg{background:var(--warn-soft);font-weight:600}
+  .stepper{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+  .dots{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 0}
+  .dots span{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .dots span.on{background:var(--au-red);color:#fff}
+  .dots span.done{background:var(--ok-soft);color:var(--ok)}
+  .narr{font-size:15px;margin-top:12px;min-height:72px}
+  .ctlrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0}
+  .ctlrow label{font-size:14px;font-weight:600}
+  .q{border-top:1px solid var(--line);padding:12px 0}
+  .q p{margin:0 0 8px;font-weight:600}
+  .opts{display:flex;gap:8px;flex-wrap:wrap}
+  .opts .btn{text-align:left}
+  .hidden{display:none}
+  .grid>*{min-width:0}
+  @media(min-width:900px){#paneNat .grid.two{grid-template-columns:1.25fr 1fr}}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 4 · Interactive A</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 4 · Explorer</span>
+    <h1>DHCP and NAT walkthrough</h1>
+    <p class="lede">Two services make a small office network practical. DHCP hands every new device an address automatically, and NAT with PAT lets the whole office share one public IP address. Step through each one packet by packet and watch the router's tables fill in.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Start on the DHCP tab. Press "Connect a new device", then use Next step to walk through Discover, Offer, Request and Acknowledge.</li>
+      <li>Read the packet card under the diagram: it shows the source and destination addresses at each step.</li>
+      <li>Change the excluded range and connect more devices to see which addresses the router leases.</li>
+      <li>Switch to the NAT and PAT tab. Press Browse on each PC and watch the router rewrite the source address and port.</li>
+      <li>Answer the quick check at the bottom when you finish both tabs.</li>
+    </ol>
+  </details>
+
+  <div class="tabs" role="tablist">
+    <button class="btn on" id="tabDhcp" role="tab" aria-selected="true">DHCP: getting an address</button>
+    <button class="btn" id="tabNat" role="tab" aria-selected="false">NAT and PAT: sharing one public address</button>
+  </div>
+
+  <!-- DHCP -->
+  <section id="paneDhcp">
+    <div class="grid two">
+      <div class="card">
+        <h2>Bayshore Dental front office</h2>
+        <svg class="topo" id="dSvg" viewBox="0 100 760 145" role="img" aria-label="New device connects through switch SW1 to router R1, which is the DHCP server"></svg>
+        <div class="dots" id="dDots"><span>Discover</span><span>Offer</span><span>Request</span><span>Acknowledge</span></div>
+        <div class="narr" id="dNarr" aria-live="polite">Press "Connect a new device" to start.</div>
+        <div class="stepper">
+          <button class="btn primary" id="dNew">Connect a new device</button>
+          <button class="btn" id="dNext" disabled>Next step</button>
+          <button class="btn" id="dAuto" disabled>Play all steps</button>
+        </div>
+        <div class="pcard" id="dCard"></div>
+      </div>
+      <aside class="card">
+        <h2>Router R1 DHCP setup</h2>
+        <div class="ctlrow">
+          <label for="dExcl">Excluded addresses</label>
+          <select id="dExcl">
+            <option value="10">192.168.1.1 to 192.168.1.10</option>
+            <option value="20">192.168.1.1 to 192.168.1.20</option>
+            <option value="50">192.168.1.1 to 192.168.1.50</option>
+          </select>
+        </div>
+        <div class="cli" id="dCfg"></div>
+        <h3 style="margin-top:16px">DHCP bindings (show ip dhcp binding)</h3>
+        <div class="scroll-x"><table class="data" id="dLease"><tr><th>IP address</th><th>Client MAC</th><th>Lease</th></tr></table></div>
+        <p style="font-size:13px;color:var(--muted)">Excluded addresses stay free for devices that need a fixed address: the router (.1), printers, servers and access points.</p>
+        <button class="btn" id="dReset">Reset DHCP</button>
+      </aside>
+    </div>
+  </section>
+
+  <!-- NAT -->
+  <section id="paneNat" class="hidden">
+    <div class="grid two">
+      <div class="card">
+        <h2>Three PCs, one public address</h2>
+        <svg class="topo" id="nSvg" viewBox="0 0 800 330" role="img" aria-label="Three inside PCs connect through R1 to the ISP and an internet web server"></svg>
+        <div class="stepper" id="nBtns"></div>
+        <div class="ctlrow"><label><input type="checkbox" id="nSame"> Make PC2 reuse PC1's source port (shows how PAT handles a conflict)</label></div>
+        <div class="narr" id="nNarr" aria-live="polite">Press Browse on any PC to send a web request to 203.0.113.10 port 80.</div>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+          <div class="pcard" id="nBefore"></div>
+          <div class="pcard" id="nAfter"></div>
+        </div>
+      </div>
+      <aside class="card">
+        <h2>Router R1 PAT setup</h2>
+        <div class="cli" id="nCfg"></div>
+        <h3 style="margin-top:16px">show ip nat translations</h3>
+        <div class="cli" id="nTable" style="font-size:12px"></div>
+        <p style="font-size:13px;color:var(--muted)">Inside local is the private address the PC really has. Inside global is the public address the internet sees. The port number tells R1 which inside PC each reply belongs to.</p>
+        <button class="btn" id="nReset">Clear translations</button>
+      </aside>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:16px">
+    <h2>Quick check</h2>
+    <div id="quiz"></div>
+    <div class="score" style="margin-top:10px">Quick check score: <span class="big" id="qScore">0 / 6</span></div>
+  </section>
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+<script>
+const hasGSAP = typeof window.gsap !== 'undefined';
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = id => document.getElementById(id);
+const NS='http://www.w3.org/2000/svg';
+function mk(tag,attrs,parent){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
+function node(svg,x,y,w,h,name,sub,rx){ const g=mk('g',{class:'node'},svg); mk('rect',{x:x-w/2,y:y-h/2,width:w,height:h,rx:rx||8},g); const t=mk('text',{x,y:sub?y-4:y+7,'text-anchor':'middle'},g); t.textContent=name; if(sub){ const s=mk('text',{x,y:y+18,'text-anchor':'middle',class:'sub'},g); s.textContent=sub; } return g; }
+function movePkt(pk, path, color, label, done){
+  const lab = pk.querySelector('text'); lab.textContent = label; pk.querySelector('rect').setAttribute('fill', color);
+  if (!hasGSAP || reduce){ const [x,y]=path[path.length-1]; pk.setAttribute('transform',`translate(${x},${y})`); pk.setAttribute('opacity',1); setTimeout(()=>{pk.setAttribute('opacity',0); done&&done();},300); return; }
+  const tl=gsap.timeline({onComplete:()=>{ gsap.to(pk,{opacity:0,duration:0.2}); done&&done(); }});
+  tl.set(pk,{attr:{transform:`translate(${path[0][0]},${path[0][1]})`},opacity:1});
+  for (let i=1;i<path.length;i++) tl.to(pk,{attr:{transform:`translate(${path[i][0]},${path[i][1]})`},duration:0.6,ease:'power1.inOut'});
+}
+function packet(svg){ const g=mk('g',{opacity:0},svg); mk('rect',{x:-34,y:-15,width:68,height:30,rx:15,fill:'#E1141E',stroke:'#fff','stroke-width':3},g); mk('text',{y:5,'text-anchor':'middle','font-size':'13','font-weight':'700',fill:'#fff'},g); return g; }
+function card(el, title, right, rows){
+  el.innerHTML = `<div class="ph"><span>${title}</span><span>${right||''}</span></div><table>${rows.map(r=>`<tr><td>${r[0]}</td><td class="mono ${r[2]?'chg':''}">${r[1]}</td></tr>`).join('')}</table>`;
+}
+
+/* ======================= DHCP ======================= */
+const D = { leases:[], next:0, step:-1, dev:null, busy:false };
+const DEVNAMES = ['Front desk laptop','Hygienist tablet','Dentist laptop','Billing PC','Guest phone','Backup laptop'];
+const MACS = ['00D0.BA4C.1A01','0060.2F84.3B12','0001.9637.7C23','00E0.F7A2.4D34','0090.0C55.9E45','000A.41C3.2F56'];
+function exclEnd(){ return +$('dExcl').value; }
+function nextFree(){ const used=new Set(D.leases.map(l=>l.ip)); for(let h=exclEnd()+1;h<=254;h++){ const ip='192.168.1.'+h; if(!used.has(ip)) return ip; } return null; }
+function dCfg(){
+  $('dCfg').textContent = `R1(config)# ip dhcp excluded-address 192.168.1.1 192.168.1.${exclEnd()}
+R1(config)# ip dhcp pool OFFICE
+R1(dhcp-config)# network 192.168.1.0 255.255.255.0
+R1(dhcp-config)# default-router 192.168.1.1
+R1(dhcp-config)# dns-server 8.8.8.8
+R1(dhcp-config)# exit`;
+}
+function dLease(){
+  $('dLease').innerHTML = '<tr><th>IP address</th><th>Client MAC</th><th>Lease</th></tr>' + (D.leases.length? D.leases.map(l=>`<tr><td class="mono">${l.ip}</td><td class="mono">${l.mac}</td><td>1 day (default)</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--muted)">No bindings yet</td></tr>');
+}
+let dPk;
+function dDraw(){
+  const s=$('dSvg'); s.innerHTML='';
+  mk('line',{x1:120,y1:150,x2:380,y2:150,class:'lnk'},s); mk('line',{x1:380,y1:150,x2:630,y2:150,class:'lnk'},s);
+  node(s,120,150,190,62, D.dev?D.dev.name.split(' ')[0]+' '+(D.dev.name.split(' ')[1]||''):'New device', D.dev?(D.dev.ip||'IP 0.0.0.0'):'not connected');
+  node(s,380,150,120,50,'SW1');
+  node(s,630,150,200,62,'R1','192.168.1.1',20);
+  const z=mk('text',{x:630,y:225,'text-anchor':'middle',class:'zone'},s); z.textContent='DHCP SERVER';
+  const z2=mk('text',{x:120,y:225,'text-anchor':'middle',class:'zone'},s); z2.textContent='DHCP CLIENT';
+  dPk = packet(s);
+}
+const DSTEPS = [
+  {n:'Discover', dir:1, text:d=>`The new device has no address yet, so it uses 0.0.0.0 as its source and broadcasts a DHCP Discover to 255.255.255.255: "Is there a DHCP server out there?" The switch floods the broadcast to every port in the VLAN, and R1 hears it.`,
+   rows:d=>[['Source MAC',d.mac],['Destination MAC','FFFF.FFFF.FFFF (broadcast)'],['Source IP','0.0.0.0'],['Destination IP','255.255.255.255'],['UDP ports','68 to 67'],['Message','DHCP Discover']]},
+  {n:'Offer', dir:-1, text:d=>`R1 picks the first free address after the excluded range, ${d.offer}, and offers it together with the mask, default gateway and DNS server.`,
+   rows:d=>[['Source MAC','R1 G0/0/0'],['Destination MAC',d.mac],['Source IP','192.168.1.1'],['Destination IP','255.255.255.255 or '+d.offer+' (depends on the client)'],['UDP ports','67 to 68'],['Offered address',d.offer],['Mask, gateway, DNS','255.255.255.0, 192.168.1.1, 8.8.8.8']]},
+  {n:'Request', dir:1, text:d=>`The device answers with a DHCP Request, still broadcast because it does not own the address yet: "I would like ${d.offer} from server 192.168.1.1, please." Broadcasting also tells any other DHCP server that its offer was not chosen.`,
+   rows:d=>[['Source MAC',d.mac],['Destination MAC','FFFF.FFFF.FFFF (broadcast)'],['Source IP','0.0.0.0'],['Destination IP','255.255.255.255'],['UDP ports','68 to 67'],['Requested address',d.offer],['Server identifier','192.168.1.1']]},
+  {n:'Acknowledge', dir:-1, text:d=>`R1 confirms with a DHCP Acknowledge and records the binding. The device now configures ${d.offer}/24 with gateway 192.168.1.1 and can reach the network. The lease lasts one day unless renewed.`,
+   rows:d=>[['Source IP','192.168.1.1'],['Destination','the client'],['UDP ports','67 to 68'],['Confirmed address',d.offer],['Lease time','1 day (Cisco default)'],['Message','DHCP Acknowledge']]}
+];
+function dShowStep(){
+  const s=DSTEPS[D.step], d=D.dev;
+  [...$('dDots').children].forEach((el,i)=>{ el.className = i<D.step?'done':(i===D.step?'on':''); });
+  $('dNarr').textContent = `Step ${D.step+1} of 4, ${s.n}: ` + s.text(d);
+  card($('dCard'), 'DHCP '+s.n, D.step%2? 'R1 to client':'client to R1', s.rows(d));
+  const path = s.dir===1 ? [[120,150],[380,150],[630,150]] : [[630,150],[380,150],[120,150]];
+  D.busy=true; $('dNext').disabled=true; $('dAuto').disabled=true;
+  movePkt(dPk, path, s.dir===1?'#E1141E':'#2563EB', s.n.slice(0,5), ()=>{
+    D.busy=false;
+    if (D.step===3){
+      d.ip=d.offer; D.leases.push({ip:d.offer, mac:d.mac}); dLease(); dDraw();
+      $('dNew').disabled = D.next>=DEVNAMES.length; $('dNext').disabled=true; $('dAuto').disabled=true;
+      $('dNarr').textContent += D.next>=DEVNAMES.length ? ' That is every device for this demo. Reset to start over.' : ' Connect another device or change the excluded range.';
+    } else { $('dNext').disabled=false; $('dAuto').disabled=false; }
+  });
+}
+$('dNew').addEventListener('click',()=>{
+  const offer=nextFree(); if(!offer) return;
+  D.dev={name:DEVNAMES[D.next], mac:MACS[D.next], offer, ip:null}; D.next++; D.step=0; $('dNew').disabled=true; dDraw(); dShowStep();
+});
+$('dNext').addEventListener('click',()=>{ if(D.busy||D.step>=3) return; D.step++; dShowStep(); });
+$('dAuto').addEventListener('click',()=>{
+  const go=()=>{ if(D.step>=3) return; if(D.busy){ setTimeout(go,150); return; } D.step++; dShowStep(); setTimeout(go, hasGSAP&&!reduce?1500:400); };
+  go();
+});
+$('dExcl').addEventListener('change',()=>{ dCfg(); if(D.dev && D.step<3 && D.step>=0){ /* keep current */ } $('dNarr').textContent='Excluded range changed. The next device will receive '+(nextFree()||'no address')+'. Addresses already leased keep their binding.'; });
+$('dReset').addEventListener('click',()=>{ D.leases=[]; D.next=0; D.step=-1; D.dev=null; D.busy=false; $('dNew').disabled=false; $('dNext').disabled=true; $('dAuto').disabled=true; [...$('dDots').children].forEach(el=>el.className=''); $('dNarr').textContent='Press "Connect a new device" to start.'; $('dCard').innerHTML=''; dLease(); dDraw(); });
+
+/* ======================= NAT / PAT ======================= */
+const PUB='198.51.100.2', WEB='203.0.113.10';
+const PCS=[{n:'PC1',ip:'192.168.1.11',y:60},{n:'PC2',ip:'192.168.1.12',y:165},{n:'PC3',ip:'192.168.1.13',y:270}];
+const N = { tr:[], busy:false };
+const PORTS = {PC1:51001, PC2:51840, PC3:52317};
+function nCfg(){
+  $('nCfg').textContent = `R1(config)# interface GigabitEthernet0/0/0
+R1(config-if)# ip address 192.168.1.1 255.255.255.0
+R1(config-if)# ip nat inside
+R1(config-if)# interface GigabitEthernet0/0/1
+R1(config-if)# ip address ${PUB} 255.255.255.252
+R1(config-if)# ip nat outside
+R1(config-if)# exit
+R1(config)# access-list 1 permit 192.168.1.0 0.0.0.255
+R1(config)# ip nat inside source list 1 interface GigabitEthernet0/0/1 overload`;
+}
+function nTable(hl){
+  const hdr='Pro  Inside global         Inside local          Outside local         Outside global';
+  const rows=N.tr.map(t=>`tcp  ${(PUB+':'+t.gport).padEnd(21)} ${(t.ip+':'+t.lport).padEnd(21)} ${(WEB+':80').padEnd(21)} ${WEB}:80`);
+  $('nTable').textContent = hdr+'\n'+(rows.length?rows.join('\n'):'(no translations yet)');
+}
+let nPk;
+function nDraw(){
+  const s=$('nSvg'); s.innerHTML='';
+  PCS.forEach(p=>mk('line',{x1:95,y1:p.y,x2:300,y2:165,class:'lnk'},s));
+  mk('line',{x1:300,y1:165,x2:520,y2:165,class:'lnk'},s); mk('line',{x1:520,y1:165,x2:705,y2:165,class:'lnk'},s);
+  mk('line',{x1:410,y1:20,x2:410,y2:310,stroke:'#C9CED6','stroke-width':2,'stroke-dasharray':'6 6'},s);
+  const a=mk('text',{x:395,y:40,'text-anchor':'end',class:'zone'},s); a.textContent='INSIDE (PRIVATE)';
+  const b=mk('text',{x:425,y:40,class:'zone'},s); b.textContent='OUTSIDE (PUBLIC)';
+  PCS.forEach(p=>node(s,95,p.y,150,58,p.n,p.ip));
+  node(s,300,165,120,58,'R1','PAT',20);
+  node(s,520,165,120,50,'ISP');
+  node(s,705,165,160,58,'Web server',WEB);
+  nPk=packet(s);
+}
+function allocPort(lport){
+  const used=new Set(N.tr.map(t=>t.gport));
+  if (!used.has(lport)) return lport;
+  let p=1024; while(used.has(p)) p++; return p;
+}
+function browse(i){
+  if (N.busy) return;
+  const p=PCS[i];
+  let lport = PORTS[p.n];
+  if ($('nSame').checked && p.n==='PC2') lport = PORTS.PC1;
+  let t = N.tr.find(x=>x.ip===p.ip && x.lport===lport);
+  const fresh = !t;
+  if (!t){ t={ip:p.ip, lport, gport:allocPort(lport)}; }
+  card($('nBefore'),'Inside R1: before translation','inside local',[['Source',`${p.ip}:${lport}`],['Destination',`${WEB}:80`]]);
+  card($('nAfter'),'Outside R1: after translation','inside global',[['Source',`${PUB}:${t.gport}`,true],['Destination',`${WEB}:80`]]);
+  N.busy=true; [...$('nBtns').children].forEach(b=>b.disabled=true);
+  $('nNarr').textContent = `${p.n} sends a web request from ${p.ip}:${lport}. Private addresses cannot travel on the internet, so R1 must translate it.`;
+  movePkt(nPk, [[95,p.y],[300,165]], '#E1141E', 'HTTP', ()=>{
+    if (fresh) N.tr.push(t);
+    nTable();
+    const conflict = t.gport!==t.lport;
+    $('nNarr').textContent = fresh
+      ? (conflict ? `Port ${lport} is already used in the table by another inside PC, so R1 picks a different free port, ${t.gport}, for ${p.n}. Inside global is now ${PUB}:${t.gport}.`
+                  : `R1 replaces the source with its public address and keeps the port when it is free: ${PUB}:${t.gport}. A new line appears in the translation table.`)
+      : `This conversation already has a translation, so R1 reuses ${PUB}:${t.gport}.`;
+    movePkt(nPk, [[300,165],[520,165],[705,165]], '#E1141E', 'HTTP', ()=>{
+      $('nNarr').textContent = `The web server replies to ${PUB}:${t.gport}. It never sees ${p.ip}.`;
+      card($('nBefore'),'Reply arriving at R1','outside',[['Source',`${WEB}:80`],['Destination',`${PUB}:${t.gport}`]]);
+      card($('nAfter'),'Reply after R1 looks up the table','inside',[['Source',`${WEB}:80`],['Destination',`${p.ip}:${lport}`,true]]);
+      movePkt(nPk, [[705,165],[520,165],[300,165],[95,p.y]], '#2563EB', 'Reply', ()=>{
+        $('nNarr').textContent = `R1 found port ${t.gport} in its table, changed the destination back to ${p.ip}:${lport}, and delivered the reply to ${p.n}. Try another PC.`;
+        N.busy=false; [...$('nBtns').children].forEach(b=>b.disabled=false);
+      });
+    });
+  });
+}
+function nButtons(){ $('nBtns').innerHTML=''; PCS.forEach((p,i)=>{ const b=document.createElement('button'); b.className='btn primary'; b.textContent='Browse from '+p.n; b.addEventListener('click',()=>browse(i)); $('nBtns').appendChild(b); }); }
+$('nReset').addEventListener('click',()=>{ if(N.busy) return; N.tr=[]; nTable(); $('nBefore').innerHTML=''; $('nAfter').innerHTML=''; $('nNarr').textContent='Translations cleared. Press Browse on any PC.'; });
+
+/* ---------- tabs ---------- */
+function tab(which){
+  const d = which==='d';
+  $('paneDhcp').classList.toggle('hidden',!d); $('paneNat').classList.toggle('hidden',d);
+  $('tabDhcp').classList.toggle('on',d); $('tabNat').classList.toggle('on',!d);
+  $('tabDhcp').setAttribute('aria-selected',d); $('tabNat').setAttribute('aria-selected',!d);
+}
+$('tabDhcp').addEventListener('click',()=>tab('d')); $('tabNat').addEventListener('click',()=>tab('n'));
+
+/* ---------- quiz ---------- */
+const QUIZ=[
+ {q:'What source IP address does a device use in its DHCP Discover message?', o:['0.0.0.0','255.255.255.255','192.168.1.1','The address it had yesterday'], a:0, e:'The device has no address yet, so it uses 0.0.0.0 and broadcasts to 255.255.255.255.'},
+ {q:'Put the DHCP messages in order.', o:['Request, Offer, Discover, Acknowledge','Discover, Offer, Request, Acknowledge','Discover, Request, Offer, Acknowledge','Offer, Discover, Acknowledge, Request'], a:1, e:'Discover, Offer, Request, Acknowledge (DORA).'},
+ {q:'Why exclude 192.168.1.1 to 192.168.1.10 from the DHCP pool?', o:['To make DHCP faster','To keep those addresses for devices with static IPs such as the router and printers','Because .1 to .10 are not valid hosts','To block guests'], a:1, e:'Excluded addresses are never leased, so you can assign them statically without conflicts.'},
+ {q:'In PAT, what lets R1 tell apart replies for three PCs that share one public IP?', o:['The MAC address','The port number in the translation table','The TTL','The DNS name'], a:1, e:'Each inside conversation gets its own inside global port, so the port identifies the inside PC.'},
+ {q:'Which keyword turns NAT into PAT on a Cisco router?', o:['overload','pool','inside','permit'], a:0, e:'ip nat inside source list 1 interface G0/0/1 overload lets many inside hosts share the interface address.'},
+ {q:'What does the internet web server see as the source of a request from PC2?', o:['192.168.1.12','R1 public address 198.51.100.2 with a port number','PC2 MAC address','203.0.113.10'], a:1, e:'After translation the packet carries the inside global address, R1 public IP plus a port.'}
+];
+const answered={};
+function buildQuiz(){
+  const box=$('quiz');
+  QUIZ.forEach((it,qi)=>{
+    const d=document.createElement('div'); d.className='q';
+    d.innerHTML='<p>'+(qi+1)+'. '+it.q+'</p><div class="opts"></div><div aria-live="polite"></div>';
+    const opts=d.querySelector('.opts');
+    it.o.forEach((t,oi)=>{ const b=document.createElement('button'); b.className='btn'; b.textContent=t;
+      b.addEventListener('click',()=>{ if(answered[qi]!==undefined) return; answered[qi]=oi===it.a;
+        opts.querySelectorAll('button').forEach((x,xi)=>{ x.disabled=true; if(xi===it.a){x.style.borderColor='var(--ok)';x.style.background='var(--ok-soft)';} });
+        if(oi!==it.a){ b.style.borderColor='var(--bad)'; b.style.background='var(--bad-soft)'; }
+        d.lastElementChild.innerHTML='<div class="feedback '+(oi===it.a?'ok':'bad')+'">'+(oi===it.a?'Correct. ':'Not quite. ')+it.e+'</div>';
+        $('qScore').textContent=Object.values(answered).filter(Boolean).length+' / '+QUIZ.length; });
+      opts.appendChild(b); });
+    box.appendChild(d);
+  });
+}
+
+dCfg(); dLease(); dDraw(); nCfg(); nTable(); nDraw(); nButtons(); buildQuiz();
+window.__dn = {D, N, nextFree, allocPort, browse};
+</script>
+</body>
+</html>

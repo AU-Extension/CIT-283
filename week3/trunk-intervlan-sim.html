@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trunk and Inter-VLAN Challenge</title>
+<meta name="description" content="CIT-283 Week 3 challenge: fix trunk, VLAN and router-on-a-stick mistakes until the test ping succeeds.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  .topo{width:100%;height:auto;display:block}
+  .topo .lnk{stroke:#9AA3AF;stroke-width:3}
+  .topo .lnk.trunk{stroke:#4B5563;stroke-width:5}
+  .topo .lnk.bad{stroke:var(--bad);stroke-dasharray:6 5}
+  .topo .lnk.okp{stroke:var(--ok)}
+  .topo .node rect{fill:#fff;stroke:#16181D;stroke-width:2}
+  .topo .node text{font-size:21px;font-weight:700;fill:var(--ink)}
+  .topo .node text.sub{font-size:15px;fill:var(--ink-2);font-weight:500}
+  .topo .port{font-size:14px;fill:var(--ink-2);font-family:var(--mono)}
+  .ticket{border-left:4px solid var(--au-red);background:var(--au-red-soft);padding:12px 14px;border-radius:8px;margin:0 0 14px}
+  .ticket .t{font-weight:700;margin-bottom:4px}
+  .ctl{display:grid;grid-template-columns:1fr;gap:6px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .ctl:last-child{border-bottom:0}
+  .ctl label{font-size:14px;font-weight:600}
+  .ctl .cmd{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .ctl select{width:100%}
+  .row-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .steps{margin:10px 0 0;padding-left:20px;font-size:14px}
+  .steps li{margin-bottom:4px}
+  .steps li.fail{color:var(--bad);font-weight:600}
+  .steps li.okk{color:var(--ok);font-weight:600}
+  .progress{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+  .progress span{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:#EEF1F5;color:var(--ink-2);border:2px solid transparent}
+  .progress span.cur{border-color:var(--au-red);color:var(--au-red-dark);background:#fff}
+  .progress span.done{background:var(--ok-soft);color:var(--ok)}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .tabs .btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .tagline{font-size:13px;color:var(--ink-2);min-height:20px;margin-top:6px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+  .legend i{display:inline-block;width:22px;height:0;border-top:3px solid #9AA3AF;vertical-align:middle;margin-right:5px}
+  .legend i.t{border-top:5px solid #4B5563}
+  .final table td:last-child,.final table th:last-child{text-align:right}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 3 · Interactive B</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 3 · Challenge</span>
+    <h1>Trunk and inter-VLAN routing challenge</h1>
+    <p class="lede">Eight help desk tickets, each caused by one or two configuration mistakes on a small office network with two switches and a router-on-a-stick. Change the settings, run the test ping, and watch the frame travel, gaining and losing its 802.1Q tag as it crosses each trunk.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Read the ticket and look at the topology. Every PC uses a /24 network and its VLAN number as the third octet (VLAN 10 is 192.168.10.0/24).</li>
+      <li>Run the test ping first to see where the frame stops. The step list explains why it failed.</li>
+      <li>Change only the settings you think are wrong, then run the test again. The configuration tabs show the matching Cisco IOS lines.</li>
+      <li>Each ticket is worth 100 points. A failed test costs 20 points and a hint costs 10, with a minimum of 40 points for a solved ticket.</li>
+      <li>Your total appears after the last ticket. You can restart at any time.</li>
+    </ol>
+  </details>
+
+  <div class="progress" id="progress" aria-label="Ticket progress"></div>
+
+  <div class="grid two">
+    <section class="card">
+      <div class="ticket" id="ticket"></div>
+      <svg class="topo" id="topo" viewBox="95 22 750 380" role="img" aria-label="Topology: router R1 on top connected to switch SW1, SW1 trunked to SW2, PCs below"></svg>
+      <div class="legend"><span><i></i>Access link (untagged)</span><span><i class="t"></i>Trunk link (802.1Q tagged)</span></div>
+      <div class="tagline" id="tagline" aria-live="polite"></div>
+      <ol class="steps" id="steps" aria-live="polite"></ol>
+    </section>
+    <aside class="card">
+      <h2>Settings you can change</h2>
+      <div id="controls"></div>
+      <div class="row-btns">
+        <button class="btn primary" id="runBtn">Run test ping</button>
+        <button class="btn" id="hintBtn">Hint (minus 10)</button>
+        <button class="btn" id="nextBtn" disabled>Next ticket</button>
+      </div>
+      <div id="fb"></div>
+      <div class="score" style="margin-top:14px">Score so far: <span class="big" id="score">0</span><span class="pill" id="ptsNow">This ticket: 100</span></div>
+    </aside>
+  </div>
+
+  <section class="card" style="margin-top:16px">
+    <h2>Running configuration</h2>
+    <div class="tabs" id="tabs"></div>
+    <div class="cli" id="cfg"></div>
+    <p style="font-size:13px;color:var(--muted);margin:8px 0 0">On a Cisco 2960 in Packet Tracer, <code>switchport mode trunk</code> is enough: the 2960 supports only 802.1Q, so no encapsulation command is needed on the switch.</p>
+  </section>
+
+  <section class="card final" id="final" style="margin-top:16px;display:none"></section>
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+<script>
+const hasGSAP = typeof window.gsap !== 'undefined';
+const VNAME = {1:'default',10:'Sales',20:'Accounting',30:'Guest',99:'Parking'};
+
+/* ---------- network model ---------- */
+function base(){
+  return {
+    sw:{
+      SW1:{vlans:[1,10,20,30], ports:{'Fa0/1':{mode:'access',vlan:10},'Fa0/2':{mode:'access',vlan:20},'Gi0/1':{mode:'trunk',vlan:1,allowed:'10,20,30'},'Gi0/2':{mode:'trunk',vlan:1,allowed:'10,20,30'}}},
+      SW2:{vlans:[1,10,20,30], ports:{'Fa0/1':{mode:'access',vlan:10},'Fa0/2':{mode:'access',vlan:20},'Fa0/3':{mode:'access',vlan:30},'Gi0/2':{mode:'trunk',vlan:1,allowed:'10,20,30'}}}
+    },
+    r1:{up:true, subs:{'10':{encap:10,ip:'192.168.10.1'},'20':{encap:20,ip:'192.168.20.1'},'30':{encap:30,ip:'192.168.30.1'}}},
+    pcs:{'PC-A':{ip:'192.168.10.11',gw:'192.168.10.1'},'PC-B':{ip:'192.168.20.11',gw:'192.168.20.1'},'PC-C':{ip:'192.168.10.12',gw:'192.168.10.1'},'PC-D':{ip:'192.168.20.12',gw:'192.168.20.1'},'PC-E':{ip:'192.168.30.12',gw:'192.168.30.1'}}
+  };
+}
+const ATTACH = {'PC-A':['SW1','Fa0/1'],'PC-B':['SW1','Fa0/2'],'PC-C':['SW2','Fa0/1'],'PC-D':['SW2','Fa0/2'],'PC-E':['SW2','Fa0/3']};
+const LINKS = [
+  {id:'r', a:'R1', b:'SW1', bp:'Gi0/1', kind:'router'},
+  {id:'s', a:'SW1', ap:'Gi0/2', b:'SW2', bp:'Gi0/2', kind:'sw'},
+  ...Object.entries(ATTACH).map(([pc,[sw,p]])=>({id:pc, a:pc, b:sw, bp:p, kind:'pc'}))
+];
+const POS = {'R1':[440,58],'SW1':[290,200],'SW2':[620,200],'PC-A':[165,360],'PC-B':[320,360],'PC-C':[475,360],'PC-D':[625,360],'PC-E':[775,360]};
+
+const ip2n = ip => ip.split('.').reduce((a,o)=>a*256+(+o),0);
+const net24 = ip => ip ? ip.split('.').slice(0,3).join('.') : '';
+const sameNet = (a,b) => !!a && !!b && net24(a)===net24(b);
+function allowedList(s){ return s==='all' ? null : s.split(',').map(Number); }
+function isAllowed(port,v){ const l = allowedList(port.allowed||'all'); return l===null || l.includes(v); }
+function pcVlan(st,pc){ const [sw,p]=ATTACH[pc]; const port=st.sw[sw].ports[p]; return port.mode==='access'?port.vlan:1; }
+function dupEncap(st){ const e=Object.values(st.r1.subs).map(s=>s.encap); return e.length!==new Set(e).size; }
+function subByEncap(st,v){ return Object.entries(st.r1.subs).find(([k,s])=>s.encap===v); }
+
+/* does a link carry VLAN v? returns {ok, tagged, reason} */
+function carries(st, L, v){
+  if (L.kind==='pc'){
+    const sw=st.sw[L.b], port=sw.ports[L.bp];
+    if (port.mode==='trunk' && v!==1) return {ok:false, reason:`${L.b} ${L.bp} is configured as a trunk, but a PC sends untagged frames, so they land in the native VLAN 1, not VLAN ${v}.`};
+    const pv = port.mode==='access'?port.vlan:1;
+    if (pv!==v) return {ok:false, reason:`${L.b} ${L.bp} is an access port in VLAN ${pv}, but this frame belongs to VLAN ${v}. A switch never forwards a frame into a different VLAN.`};
+    if (!sw.vlans.includes(v)) return {ok:false, reason:`VLAN ${v} does not exist on ${L.b}, so ${L.bp} is inactive.`};
+    return {ok:true, tagged:false};
+  }
+  if (L.kind==='sw'){
+    const p1=st.sw.SW1.ports['Gi0/2'], p2=st.sw.SW2.ports['Gi0/2'];
+    if (p1.mode!==p2.mode) return {ok:false, reason:`Mode mismatch on the switch-to-switch link: SW1 Gi0/2 is ${p1.mode==='trunk'?'a trunk':'an access port'} and SW2 Gi0/2 is ${p2.mode==='trunk'?'a trunk':'an access port'}. A link that carries several VLANs needs switchport mode trunk on both ends.`};
+    if (p1.mode==='access') return {ok:false, reason:`Both ends of the SW1 to SW2 link are access ports, so the link carries only one VLAN, untagged. Make both ends trunks so VLANs 10, 20 and 30 can share the link.`};
+    for (const [n,p] of [['SW1',p1],['SW2',p2]]) if (!isAllowed(p,v)) return {ok:false, reason:`VLAN ${v} is not in the allowed list on ${n} Gi0/2 (switchport trunk allowed vlan ${p.allowed}), so the trunk drops it.`};
+    for (const n of ['SW1','SW2']) if (!st.sw[n].vlans.includes(v)) return {ok:false, reason:`VLAN ${v} does not exist on ${n}. A switch forwards only the VLANs in its VLAN database, even across a trunk.`};
+    return {ok:true, tagged:true};
+  }
+  // router link
+  const p=st.sw.SW1.ports['Gi0/1'];
+  if (p.mode!=='trunk') return {ok:false, reason:`SW1 Gi0/1 (the port facing R1) is an access port, so frames reach the router untagged and none of its dot1Q subinterfaces accepts them. Router-on-a-stick needs this port to be a trunk.`};
+  if (!isAllowed(p,v)) return {ok:false, reason:`VLAN ${v} is not in the allowed list on SW1 Gi0/1 (switchport trunk allowed vlan ${p.allowed}), so frames for VLAN ${v} never reach R1.`};
+  if (!st.sw.SW1.vlans.includes(v)) return {ok:false, reason:`VLAN ${v} does not exist on SW1. A switch forwards only the VLANs in its VLAN database, even across a trunk.`};
+  if (!st.r1.up) return {ok:false, reason:`R1 GigabitEthernet0/0/0 is administratively down. Its subinterfaces stay down until the physical interface gets the no shutdown command.`};
+  if (dupEncap(st)) return {ok:false, reason:`R1 rejected the configuration: two subinterfaces of G0/0/0 cannot use the same VLAN ID.`};
+  if (!subByEncap(st,v)) return {ok:false, reason:`No R1 subinterface uses encapsulation dot1Q ${v}, so R1 drops frames tagged with VLAN ${v}.`};
+  return {ok:true, tagged:true};
+}
+
+function linkPath(from,to){
+  // tree: BFS over links
+  const prev={}; const q=[from]; prev[from]=null;
+  while(q.length){ const n=q.shift(); if(n===to) break;
+    LINKS.forEach(L=>{ const o = L.a===n?L.b:(L.b===n?L.a:null); if(o && !(o in prev)){ prev[o]={n,L}; q.push(o);} }); }
+  const path=[]; let cur=to; while(prev[cur]){ path.unshift({L:prev[cur].L, from:prev[cur].n, to:cur}); cur=prev[cur].n; }
+  return path;
+}
+function l2(st, from, to, v, log, anim){
+  for (const h of linkPath(from,to)){
+    const c = carries(st,h.L,v);
+    if (!c.ok){ anim.push({from:h.from,to:h.to,v,tagged:false,fail:true,link:h.L.id}); log.push({fail:true, t:c.reason}); return false; }
+    anim.push({from:h.from,to:h.to,v,tagged:c.tagged,link:h.L.id});
+  }
+  return true;
+}
+function owner(st, ip){
+  for (const [pc,c] of Object.entries(st.pcs)) if (c.ip===ip) return {node:pc};
+  for (const [k,s] of Object.entries(st.r1.subs)) if (s.ip===ip) return {node:'R1', sub:k};
+  return null;
+}
+// one direction: from a PC to an IP
+function leg(st, src, dstIP, log, anim){
+  const c = st.pcs[src], v = pcVlan(st,src);
+  if (sameNet(c.ip,dstIP)){
+    const o = owner(st,dstIP);
+    log.push({t:`${src} sees that ${dstIP} is on its own network, so it sends the frame directly in VLAN ${v}.`});
+    if (!o){ log.push({fail:true,t:`No device uses ${dstIP}.`}); return false; }
+    return l2(st, src, o.node, v, log, anim);
+  }
+  if (!c.gw){ log.push({fail:true,t:`${src} has no default gateway, so it cannot send traffic to another network.`}); return false; }
+  if (!sameNet(c.ip,c.gw)){ log.push({fail:true,t:`${src} has default gateway ${c.gw}, which is not on its own network (${net24(c.ip)}.0/24). A PC can only reach a gateway on its own subnet.`}); return false; }
+  const g = owner(st,c.gw);
+  if (!g || g.node!=='R1'){ log.push({fail:true,t:`${src} sends an ARP request for its gateway ${c.gw}, but no device in VLAN ${v} has that address. The gateway must be the R1 subinterface for VLAN ${v}.`}); return false; }
+  log.push({t:`${dstIP} is on another network, so ${src} sends the frame to its default gateway ${c.gw} in VLAN ${v}.`});
+  if (!l2(st, src, 'R1', v, log, anim)) return false;
+  const gs = st.r1.subs[g.sub];
+  if (gs.encap!==v){ log.push({fail:true,t:`The frame arrived tagged VLAN ${v}, but ${c.gw} belongs to subinterface G0/0/0.${g.sub}, which uses encapsulation dot1Q ${gs.encap}. R1 does not answer.`}); return false; }
+  const eg = Object.entries(st.r1.subs).find(([k,s])=>sameNet(s.ip,dstIP));
+  if (!eg){ log.push({fail:true,t:`R1 has no interface on ${net24(dstIP)}.0/24, so it drops the packet.`}); return false; }
+  const o = owner(st,dstIP);
+  if (o && o.node==='R1'){ log.push({t:`${dstIP} is R1's own subinterface address, so R1 answers.`}); return true; }
+  log.push({t:`R1 routes the packet out subinterface G0/0/0.${eg[0]} (encapsulation dot1Q ${eg[1].encap}), so the new frame is tagged VLAN ${eg[1].encap}.`});
+  if (!o){ log.push({fail:true,t:`No device uses ${dstIP}.`}); return false; }
+  return l2(st, 'R1', o.node, eg[1].encap, log, anim);
+}
+function ping(st, src, dstIP){
+  const log=[], anim=[];
+  log.push({t:`Ping from ${src} (${st.pcs[src].ip}) to ${dstIP}.`});
+  if (!leg(st,src,dstIP,log,anim)) return {ok:false,log,anim};
+  log.push({t:`Echo request delivered. Now the reply travels back.`});
+  const o = owner(st,dstIP);
+  if (o.node==='R1'){
+    const s = Object.entries(st.r1.subs).find(([k,x])=>sameNet(x.ip,st.pcs[src].ip));
+    if (!s){ log.push({fail:true,t:`R1 has no interface on the source network.`}); return {ok:false,log,anim}; }
+    if (!l2(st,'R1',src,s[1].encap,log,anim)) return {ok:false,log,anim};
+  } else if (!leg(st,o.node,st.pcs[src].ip,log,anim)) return {ok:false,log,anim};
+  log.push({ok:true,t:`Reply received. The ping succeeds.`});
+  return {ok:true,log,anim};
+}
+
+/* ---------- scenarios ---------- */
+const GW_OPTS = ['192.168.10.1','192.168.10.254','192.168.20.1','192.168.30.1',''];
+const SC = [
+  {title:'A trunk that is not a trunk', ticket:'Sales staff on the second floor (PC-C, VLAN 10) cannot reach Sales staff on the first floor (PC-A, VLAN 10). Both are in the same VLAN, so no router is involved.',
+   src:'PC-A', dst:'192.168.10.12', init:s=>{s.sw.SW1.ports['Gi0/2'].mode='access';},
+   ctl:[['sw','SW1','Gi0/2','mode'],['sw','SW2','Gi0/2','mode'],['sw','SW1','Fa0/1','vlan']],
+   hint:'Look at the link between the switches. Both ends must agree on how to carry several VLANs.',
+   why:'Both ends of a switch-to-switch link that carries several VLANs must be trunks. On the trunk, the frame from PC-A gets an 802.1Q tag for VLAN 10, and SW2 removes the tag before delivering it to PC-C.'},
+  {title:'Wrong VLAN on an access port', ticket:'The new accountant at PC-D cannot reach the accounting file share on PC-B. Accounting is VLAN 20.',
+   src:'PC-B', dst:'192.168.20.12', init:s=>{s.sw.SW2.ports['Fa0/2'].vlan=10;},
+   ctl:[['sw','SW2','Fa0/2','vlan'],['sw','SW2','Fa0/1','vlan'],['sw','SW1','Gi0/2','allowed']],
+   hint:'Check which VLAN the port for PC-D belongs to.',
+   why:'switchport access vlan 20 on SW2 Fa0/2 places PC-D in the Accounting VLAN. The PC itself knows nothing about VLANs: the switch port decides.'},
+  {title:'VLAN missing from the allowed list', ticket:'After a technician "secured" the trunk, accounting on the second floor (PC-D) lost contact with PC-B. Sales still works fine.',
+   src:'PC-B', dst:'192.168.20.12', init:s=>{s.sw.SW2.ports['Gi0/2'].allowed='10';},
+   ctl:[['sw','SW1','Gi0/2','allowed'],['sw','SW2','Gi0/2','allowed'],['sw','SW2','Fa0/2','vlan']],
+   hint:'A trunk only carries the VLANs in its allowed list, and both ends of the trunk count.',
+   why:'Limiting the allowed list is good practice, but it must include every VLAN that needs to cross the trunk. Here both ends must allow VLAN 20.'},
+  {title:'A VLAN the middle switch never heard of', ticket:'The guest PC (PC-E, VLAN 30) cannot even ping its own default gateway, 192.168.30.1 on R1.',
+   src:'PC-E', dst:'192.168.30.1', init:s=>{s.sw.SW1.vlans=[1,10,20];},
+   ctl:[['vdb','SW1',30],['vdb','SW2',30],['sw','SW1','Gi0/1','allowed']],
+   hint:'The frame from PC-E passes through SW1 on its way to R1. SW1 has no PCs in VLAN 30.',
+   why:'A switch forwards only VLANs that exist in its VLAN database. SW1 has no access ports in VLAN 30, so nobody created it there. The command is vlan 30 (and name Guest) on SW1.'},
+  {title:'Subinterface with the wrong tag', ticket:'Sales (PC-A) cannot reach Accounting (PC-B). Each department can still reach its own gateway.',
+   src:'PC-A', dst:'192.168.20.11', init:s=>{s.r1.subs['20'].encap=2;},
+   ctl:[['enc','20'],['enc','10'],['gw','PC-B']],
+   hint:'Read the router configuration tab. Which VLAN does each subinterface tag its frames with?',
+   why:'The encapsulation dot1Q number on each subinterface must match the VLAN ID. The subinterface number (.20) is only a label, but matching it to the VLAN makes the configuration easy to read.'},
+  {title:'Wrong default gateway', ticket:'PC-C can talk to everyone in Sales, but not to Accounting (PC-D) or anything outside VLAN 10.',
+   src:'PC-C', dst:'192.168.20.12', init:s=>{s.pcs['PC-C'].gw='192.168.10.254';},
+   ctl:[['gw','PC-C'],['gw','PC-D'],['sw','SW2','Fa0/1','vlan']],
+   hint:'Same-VLAN traffic works, so the switches are fine. What does a PC use to leave its own network?',
+   why:'Each PC must use the router subinterface address for its own VLAN as its default gateway. For VLAN 10 that is 192.168.10.1.'},
+  {title:'Router plugged into an access port', ticket:'Nothing can reach another VLAN. Every same-VLAN ping still works. The router was just moved to a new switch port.',
+   src:'PC-A', dst:'192.168.30.12', init:s=>{s.sw.SW1.ports['Gi0/1'].mode='access';},
+   ctl:[['sw','SW1','Gi0/1','mode'],['sw','SW1','Gi0/1','allowed'],['up']],
+   hint:'Router-on-a-stick sends and receives tagged frames for every VLAN on one cable.',
+   why:'The switch port facing a router-on-a-stick must be a trunk, because the router sends and receives frames tagged for every VLAN on that one cable.'},
+  {title:'Two faults at once', ticket:'Monday morning: Accounting (PC-B) cannot reach the guest PC (PC-E). Over the weekend someone worked on both R1 and SW1.',
+   src:'PC-B', dst:'192.168.30.12', init:s=>{s.r1.up=false; s.sw.SW1.ports['Gi0/1'].allowed='10,20';},
+   ctl:[['up'],['sw','SW1','Gi0/1','allowed'],['sw','SW2','Fa0/3','vlan'],['gw','PC-E']],
+   hint:'Fix one problem, run the test again, and read the new failure. Real troubleshooting often reveals the second fault only after the first is fixed.',
+   why:'R1 G0/0/0 needed no shutdown, and VLAN 30 had to be allowed on the trunk to R1. Testing after each change showed the second fault.'}
+];
+
+/* ---------- controls ---------- */
+function ctlDef(c, st){
+  if (c[0]==='sw'){
+    const [_,sw,p,f]=c, port=st.sw[sw].ports[p];
+    if (f==='mode') return {label:`${sw} ${p} port mode`, cmd:`switchport mode ${port.mode}`, opts:[['access','access'],['trunk','trunk']], get:()=>port.mode, set:v=>{port.mode=v;}};
+    if (f==='vlan') return {label:`${sw} ${p} access VLAN`, cmd:`switchport access vlan ${port.vlan}`, opts:[1,10,20,30,99].map(x=>[String(x),x+' '+VNAME[x]]), get:()=>String(port.vlan), set:v=>{port.vlan=+v;}};
+    if (f==='allowed') return {label:`${sw} ${p} trunk allowed VLANs`, cmd:`switchport trunk allowed vlan ${port.allowed}`, opts:[['10','10'],['10,20','10,20'],['10,20,30','10,20,30'],['all','all (default)']], get:()=>port.allowed, set:v=>{port.allowed=v;}};
+  }
+  if (c[0]==='vdb'){
+    const [_,sw,v]=c, db=st.sw[sw].vlans;
+    return {label:`${sw} VLAN ${v} in the VLAN database`, cmd: db.includes(v)?`vlan ${v} / name ${VNAME[v]}`:`(VLAN ${v} not created)`, opts:[['yes','Created'],['no','Not created']], get:()=>db.includes(v)?'yes':'no', set:x=>{ const i=db.indexOf(v); if(x==='yes'&&i<0) db.push(v); if(x==='no'&&i>=0) db.splice(i,1); }};
+  }
+  if (c[0]==='enc'){
+    const s=st.r1.subs[c[1]];
+    return {label:`R1 G0/0/0.${c[1]} encapsulation`, cmd:`encapsulation dot1Q ${s.encap}`, opts:[2,10,20,30].map(x=>[String(x),'dot1Q '+x]), get:()=>String(s.encap), set:v=>{s.encap=+v;}};
+  }
+  if (c[0]==='up') return {label:'R1 GigabitEthernet0/0/0 state', cmd: st.r1.up?'no shutdown':'shutdown', opts:[['up','no shutdown'],['down','shutdown']], get:()=>st.r1.up?'up':'down', set:v=>{st.r1.up=(v==='up');}};
+  if (c[0]==='gw'){
+    const pc=st.pcs[c[1]];
+    return {label:`${c[1]} default gateway`, cmd:`IP ${pc.ip} /24, gateway ${pc.gw||'(none)'}`, opts:GW_OPTS.map(x=>[x, x||'(none)']), get:()=>pc.gw, set:v=>{pc.gw=v;}};
+  }
+}
+
+/* ---------- state + UI ---------- */
+let cur=0, st=null, fails=0, hints=0, solved=false, total=0, results=[], cfgTab='SW1';
+const $=id=>document.getElementById(id);
+
+function loadScenario(i){
+  cur=i; st=base(); SC[i].init(st); fails=0; hints=0; solved=false;
+  $('nextBtn').disabled=true; $('runBtn').disabled=false; $('hintBtn').disabled=false;
+  $('fb').innerHTML=''; $('steps').innerHTML=''; $('tagline').textContent='';
+  const s=SC[i];
+  $('ticket').innerHTML=`<div class="t">Ticket ${i+1} of ${SC.length}: ${s.title}</div><div>${s.ticket}</div><div style="margin-top:6px;font-size:14px"><b>Test:</b> ping from ${s.src} to ${s.dst}</div>`;
+  renderControls(); renderProgress(); drawTopo(); renderCfg(); updatePts();
+}
+function renderControls(){
+  const box=$('controls'); box.innerHTML='';
+  SC[cur].ctl.forEach((c,k)=>{
+    const d=ctlDef(c,st); const w=document.createElement('div'); w.className='ctl';
+    const id='c'+k;
+    w.innerHTML=`<label for="${id}">${d.label}</label>`;
+    const sel=document.createElement('select'); sel.id=id;
+    d.opts.forEach(([v,t])=>{ const o=document.createElement('option'); o.value=v; o.textContent=t; sel.appendChild(o); });
+    sel.value=d.get();
+    const cmd=document.createElement('div'); cmd.className='cmd'; cmd.textContent=d.cmd;
+    sel.addEventListener('change',()=>{ d.set(sel.value); cmd.textContent=ctlDef(c,st).cmd; renderCfg(); drawTopo(); $('steps').innerHTML=''; $('tagline').textContent=''; });
+    w.appendChild(sel); w.appendChild(cmd); box.appendChild(w);
+  });
+}
+function renderProgress(){
+  $('progress').innerHTML = SC.map((s,i)=>`<span class="${i<results.length?'done':''} ${i===cur?'cur':''}" title="Ticket ${i+1}">${i+1}</span>`).join('');
+}
+function updatePts(){ $('ptsNow').textContent='This ticket: '+Math.max(40,100-20*fails-10*hints); $('score').textContent=total; }
+
+function swCfg(n){
+  const s=st.sw[n]; const L=[`hostname ${n}`,'!'];
+  s.vlans.filter(v=>v!==1).sort((a,b)=>a-b).forEach(v=>L.push(`vlan ${v}`,` name ${VNAME[v]}`,'!'));
+  Object.entries(s.ports).forEach(([p,c])=>{
+    L.push(`interface ${p.replace('Fa','FastEthernet').replace('Gi','GigabitEthernet')}`);
+    if (c.mode==='access'){ L.push(' switchport mode access'); if (c.vlan!==1) L.push(` switchport access vlan ${c.vlan}`); }
+    else { L.push(' switchport mode trunk'); if (c.allowed!=='all') L.push(` switchport trunk allowed vlan ${c.allowed}`); }
+    L.push('!');
+  });
+  return L.join('\n');
+}
+function rCfg(){
+  const L=['hostname R1','!','interface GigabitEthernet0/0/0',' no ip address', st.r1.up?' no shutdown':' shutdown','!'];
+  Object.entries(st.r1.subs).forEach(([k,s])=>L.push(`interface GigabitEthernet0/0/0.${k}`,` encapsulation dot1Q ${s.encap}`,` ip address ${s.ip} 255.255.255.0`,'!'));
+  return L.join('\n');
+}
+function pcCfg(){ return Object.entries(st.pcs).map(([n,c])=>`${n.padEnd(6)} VLAN ${String(pcVlan(st,n)).padEnd(3)} IP ${c.ip.padEnd(15)} mask 255.255.255.0  gateway ${c.gw||'(none)'}`).join('\n'); }
+function renderCfg(){
+  const tabs=['SW1','SW2','R1','PCs'];
+  $('tabs').innerHTML=''; tabs.forEach(t=>{ const b=document.createElement('button'); b.className='btn'+(t===cfgTab?' on':''); b.textContent=t; b.addEventListener('click',()=>{cfgTab=t; renderCfg();}); $('tabs').appendChild(b); });
+  $('cfg').textContent = cfgTab==='R1'?rCfg():cfgTab==='PCs'?pcCfg():swCfg(cfgTab);
+}
+
+/* ---------- drawing ---------- */
+const NS='http://www.w3.org/2000/svg';
+function mk(tag,attrs,parent){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
+function isTrunkLink(L){
+  if (L.kind==='sw') return st.sw.SW1.ports['Gi0/2'].mode==='trunk' && st.sw.SW2.ports['Gi0/2'].mode==='trunk';
+  if (L.kind==='router') return st.sw.SW1.ports['Gi0/1'].mode==='trunk';
+  return st.sw[L.b].ports[L.bp].mode==='trunk';
+}
+function drawTopo(marks){
+  const svg=$('topo'); svg.innerHTML='';
+  const gl=mk('g',{},svg);
+  LINKS.forEach(L=>{
+    const [x1,y1]=POS[L.a],[x2,y2]=POS[L.b];
+    let cls='lnk'+(isTrunkLink(L)?' trunk':'');
+    if (marks && marks[L.id]) cls+=' '+marks[L.id];
+    mk('line',{x1,y1,x2,y2,class:cls,id:'ln-'+L.id},gl);
+  });
+  // port labels
+  const lbl=(x,y,t)=>{ const e=mk('text',{x,y,class:'port','text-anchor':'middle'},svg); e.textContent=t; };
+  lbl(410,118,'G0/0/0'); lbl(296,150,'Gi0/1'); lbl(385,190,'Gi0/2'); lbl(525,190,'Gi0/2');
+  Object.entries(ATTACH).forEach(([pc,[sw,p]])=>{ const [x1,y1]=POS[sw],[x2,y2]=POS[pc]; lbl(x1+(x2-x1)*0.42+(x2<x1?-26:26), y1+(y2-y1)*0.42, p); });
+  // nodes
+  Object.entries(POS).forEach(([n,[x,y]])=>{
+    const g=mk('g',{class:'node'},svg);
+    const w = n==='R1'?110:(n.startsWith('SW')?120:136), h=n.startsWith('PC')?62:46;
+    mk('rect',{x:x-w/2,y:y-h/2,width:w,height:h,rx:n==='R1'?20:8, fill:'#fff'},g);
+    const t=mk('text',{x,y:n.startsWith('PC')?y-5:y+7,'text-anchor':'middle'},g); t.textContent=n;
+    if (n.startsWith('PC')){ const v=pcVlan(st,n); const s=mk('text',{x,y:y+18,'text-anchor':'middle',class:'sub'},g); s.textContent='VLAN '+v+' · .'+st.pcs[n].ip.split('.')[3]; }
+  });
+  const pk=mk('g',{id:'pkt',opacity:0},svg);
+  mk('circle',{r:15,fill:'#E1141E',stroke:'#fff','stroke-width':3},pk);
+  const pt=mk('text',{y:5,'text-anchor':'middle','font-size':'13','font-weight':'700',fill:'#fff',id:'pktTxt'},pk);
+}
+
+function animate(anim, done){
+  const pk=$('pkt'), txt=$('pktTxt');
+  const marks={};
+  if (!hasGSAP || !anim.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    anim.forEach(a=>{ marks[a.link]= a.fail?'bad':(marks[a.link]==='bad'?'bad':'okp'); });
+    drawTopo(marks); done(); return;
+  }
+  const tl=gsap.timeline({onComplete:()=>{ anim.forEach(a=>{ marks[a.link]= a.fail?'bad':(marks[a.link]==='bad'?'bad':'okp'); }); drawTopo(marks); done(); }});
+  anim.forEach(a=>{
+    const [x1,y1]=POS[a.from],[x2,y2]=POS[a.to];
+    tl.call(()=>{ txt.textContent = a.v; $('tagline').textContent = a.fail ? `Frame for VLAN ${a.v} is dropped between ${a.from} and ${a.to}.` : (a.tagged?`${a.from} to ${a.to}: trunk link, frame carries an 802.1Q tag for VLAN ${a.v}.`:`${a.from} to ${a.to}: access link, frame is untagged (VLAN ${a.v} is known only to the switch).`); });
+    tl.set(pk,{attr:{transform:`translate(${x1},${y1})`},opacity:1});
+    if (a.fail){
+      tl.to(pk,{attr:{transform:`translate(${x1+(x2-x1)*0.45},${y1+(y2-y1)*0.45})`},duration:0.45,ease:'power1.in'});
+      tl.to(pk,{opacity:0,duration:0.35});
+    } else {
+      tl.to(pk,{attr:{transform:`translate(${x2},${y2})`},duration:0.55,ease:'power1.inOut'});
+    }
+  });
+  tl.to(pk,{opacity:0,duration:0.2});
+}
+
+function run(){
+  if (solved) return;
+  const s=SC[cur]; const r=ping(st,s.src,s.dst);
+  $('runBtn').disabled=true;
+  drawTopo();
+  animate(r.anim, ()=>{
+    $('steps').innerHTML = r.log.map(x=>`<li class="${x.fail?'fail':x.ok?'okk':''}">${x.t}</li>`).join('');
+    if (r.ok){
+      solved=true; const pts=Math.max(40,100-20*fails-10*hints); total+=pts; results.push({t:s.title,pts});
+      $('fb').innerHTML=`<div class="feedback ok"><b>Ticket solved: ${pts} points.</b> ${s.why}</div>`;
+      $('nextBtn').disabled=false; $('hintBtn').disabled=true; $('nextBtn').textContent = cur===SC.length-1?'See final score':'Next ticket';
+      renderProgress(); $('nextBtn').focus();
+    } else {
+      fails++; $('runBtn').disabled=false;
+      $('fb').innerHTML=`<div class="feedback bad">The ping failed. Read the red step, change a setting, and test again.</div>`;
+    }
+    updatePts();
+  });
+}
+function showFinal(){
+  const pct=Math.round(total/(SC.length*100)*100);
+  const f=$('final'); f.style.display='block';
+  f.innerHTML=`<h2>Final score</h2><div class="score"><span class="big">${total} / ${SC.length*100}</span><span class="pill">${pct}%</span></div>
+  <div class="scroll-x"><table class="data" style="margin-top:12px"><tr><th>Ticket</th><th>Points</th></tr>${results.map((r,i)=>`<tr><td>${i+1}. ${r.t}</td><td>${r.pts}</td></tr>`).join('')}</table></div>
+  <p>${pct>=85?'Excellent work. You are ready for Assignment 3.2.':pct>=65?'Good work. Review the tickets where you lost points, then try Assignment 3.2.':'Restart the challenge and read each failure message slowly before changing settings.'}</p>
+  <button class="btn primary" id="restart">Restart the challenge</button>`;
+  $('restart').addEventListener('click',()=>{ total=0; results=[]; f.style.display='none'; loadScenario(0); window.scrollTo({top:0,behavior:'smooth'}); });
+  f.scrollIntoView({behavior:'smooth'});
+}
+$('runBtn').addEventListener('click',run);
+$('hintBtn').addEventListener('click',()=>{ if(solved) return; hints++; $('hintBtn').disabled=true; $('fb').innerHTML=`<div class="feedback info"><b>Hint:</b> ${SC[cur].hint}</div>`; updatePts(); });
+$('nextBtn').addEventListener('click',()=>{ if (cur<SC.length-1) loadScenario(cur+1); else showFinal(); });
+
+loadScenario(0);
+window.__tiv = {base, ping, SC, carries, get st(){return st;}};
+</script>
+</body>
+</html>

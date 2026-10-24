@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Small Office Network Designer</title>
+<meta name="description" content="CIT-283 Week 4 challenge: design a network for a Miami small business and get a scored review against its requirements.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root{
+    --au-red:#E1141E; --au-red-dark:#A3282B; --au-red-soft:#FDECEC;
+    --ink:#16181D; --ink-2:#3B4250; --muted:#6B7280; --line:#E3E6EB;
+    --bg:#F5F6F8; --card:#FFFFFF; --code-bg:#0F1722; --code-ink:#D7E3F4;
+    --net-blue:#2563EB; --net-green:#15803D; --net-amber:#B45309; --net-purple:#7C3AED; --net-teal:#0F766E;
+    --ok:#15803D; --ok-soft:#E7F6EC; --bad:#B91C1C; --bad-soft:#FDECEC; --warn:#B45309; --warn-soft:#FEF4E6;
+    --radius:12px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--au-red-dark)}
+  /* top bar with AU logo (logo PNG has wide padding, so it is cropped with a wrapper) */
+  .topbar{background:#fff;border-bottom:3px solid var(--au-red);}
+  .topbar-inner{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .au-logo{width:130px;height:36px;overflow:hidden;flex:none;display:block}
+  .au-logo img{width:145px;height:auto;margin:-28px 0 0 -8px;display:block}
+  .crumb{font-size:13px;color:var(--muted);letter-spacing:.02em;border-left:1px solid var(--line);padding-left:16px}
+  .crumb b{color:var(--ink);font-weight:600}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 48px}
+  .hero{margin:4px 0 20px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--au-red-dark);background:var(--au-red-soft);padding:3px 10px;border-radius:999px}
+  h1{font-size:clamp(26px,4vw,36px);line-height:1.15;margin:10px 0 8px;letter-spacing:-.01em}
+  h2{font-size:20px;margin:0 0 10px}
+  h3{font-size:16px;margin:0 0 8px}
+  .lede{color:var(--ink-2);max-width:760px;margin:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+  .grid{display:grid;gap:16px}
+  @media(min-width:900px){.grid.two{grid-template-columns:1.4fr 1fr}}
+  details.howto{margin:0 0 16px}
+  details.howto summary{cursor:pointer;font-weight:600}
+  .btn{font:inherit;font-weight:600;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 14px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{border-color:#C9CED6;background:#FAFAFB}
+  .btn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
+  .btn.primary{background:var(--au-red);border-color:var(--au-red);color:#fff}
+  .btn.primary:hover{background:var(--au-red-dark);border-color:var(--au-red-dark)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  input[type=text],input[type=number],select{font:inherit;font-size:15px;padding:8px 10px;border:1px solid #CBD2DA;border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+  .mono,code,kbd{font-family:var(--mono)}
+  .cli{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:13px;line-height:1.5;border-radius:10px;padding:14px 16px;overflow:auto;white-space:pre}
+  .pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#EEF1F5;color:var(--ink-2)}
+  .feedback{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}
+  .feedback.ok{background:var(--ok-soft);color:#14532D;border:1px solid #BBE5C8}
+  .feedback.bad{background:var(--bad-soft);color:#7F1D1D;border:1px solid #F5C2C2}
+  .feedback.info{background:#EEF4FF;color:#1E3A8A;border:1px solid #C7D7FE}
+  .score{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-weight:600}
+  .score .big{font-size:28px;color:var(--au-red-dark)}
+  table.data{border-collapse:collapse;width:100%;font-size:14px}
+  table.data th,table.data td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left}
+  table.data th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .scroll-x{overflow-x:auto}
+  svg text{font-family:var(--sans)}
+  footer.foot{max-width:1120px;margin:0 auto;padding:16px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  .grid>*{min-width:0}
+  .scen{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:16px}
+  .scen button{font:inherit;text-align:left;background:#fff;border:2px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;color:var(--ink)}
+  .scen button:hover{border-color:#C9CED6}
+  .scen button.on{border-color:var(--au-red);background:var(--au-red-soft)}
+  .scen b{display:block;font-size:16px;margin-bottom:4px}
+  .scen span{font-size:13px;color:var(--ink-2)}
+  .req{margin:8px 0 0;padding-left:20px;font-size:14px}
+  .req li{margin-bottom:3px}
+  .field{padding:12px 0;border-bottom:1px solid var(--line)}
+  .field:last-child{border-bottom:0}
+  .field > label,.field > .lbl{display:block;font-weight:600;font-size:15px;margin-bottom:6px}
+  .field .help{font-size:13px;color:var(--muted);margin-top:4px}
+  .field select{width:100%}
+  .checks{display:flex;gap:8px 16px;flex-wrap:wrap;font-size:14px}
+  .checks label{display:flex;gap:6px;align-items:center;font-weight:500}
+  .res{list-style:none;padding:0;margin:12px 0 0}
+  .res li{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:start;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .res li .ic{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .res li.pass .ic{background:var(--ok-soft);color:var(--ok)}
+  .res li.warn .ic{background:var(--warn-soft);color:var(--warn)}
+  .res li.fail .ic{background:var(--bad-soft);color:var(--bad)}
+  .res li .pts{font-weight:700;white-space:nowrap}
+  .meter{height:12px;background:#EEF1F5;border-radius:999px;overflow:hidden;margin-top:6px}
+  .meter i{display:block;height:100%;width:0;background:var(--au-red);border-radius:999px;transition:width .4s}
+  .summary h3{margin-top:16px}
+  .print-only{display:none}
+  @media print{
+    .topbar,.hero,details,.scen,#formCard,#resultCard .row-btns,footer,.noprint{display:none!important}
+    body{background:#fff}
+    .card{box-shadow:none;border:0;padding:0}
+    .print-only{display:block}
+    .grid.two{display:block}
+  }
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="au-logo" href="https://github.com/AU-Extension" target="_blank" rel="noopener" aria-label="Atlantis University">
+      <img src="https://raw.githubusercontent.com/AU-Extension/items/main/aulogo1.png" alt="Atlantis University">
+    </a>
+    <div class="crumb"><b>CIT-283</b> Advanced Network Administration · Week 4 · Interactive B</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow">Week 4 · Challenge</span>
+    <h1>Small office network designer</h1>
+    <p class="lede">Pick a Miami small-business client, read what the owner needs, and design the network: equipment, VLANs, wireless, subnet sizes, addressing and NAT. The designer checks your choices against the requirements, explains every point gained or lost, and produces a summary you can print.</p>
+  </section>
+
+  <details class="howto card">
+    <summary>How to use this interactive</summary>
+    <ol>
+      <li>Choose one of the clients below and read the requirements carefully. Counts matter.</li>
+      <li>Work through the design form from top to bottom. The help line under each choice explains the term.</li>
+      <li>Press "Check my design" to see your score out of 100 and specific feedback.</li>
+      <li>Change your choices and check again as often as you like, then print the summary.</li>
+      <li>Try all of the clients. Each one has a different trap.</li>
+    </ol>
+  </details>
+
+  <div class="scen" id="scen" role="radiogroup" aria-label="Choose a client"></div>
+
+  <div class="grid two">
+    <section class="card" id="formCard">
+      <h2 id="clientName">Client</h2>
+      <p id="clientDesc" style="margin:0"></p>
+      <ul class="req" id="clientReq"></ul>
+      <div id="form" style="margin-top:8px"></div>
+      <div class="row-btns" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn primary" id="checkBtn">Check my design</button>
+        <button class="btn" id="resetBtn">Reset choices</button>
+      </div>
+    </section>
+    <aside class="card" id="resultCard">
+      <div class="print-only"><h2 id="pTitle"></h2></div>
+      <h2 class="noprint">Design review</h2>
+      <div class="score"><span>Score</span><span class="big" id="score">0 / 100</span><span class="pill" id="checks">Not checked yet</span></div>
+      <div class="meter" aria-hidden="true"><i id="meter"></i></div>
+      <ul class="res" id="res"><li class="warn"><span class="ic">?</span><span>Complete the form and press "Check my design".</span><span></span></li></ul>
+      <div class="summary" id="summary"></div>
+      <div class="row-btns" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+        <button class="btn" id="printBtn" disabled>Print summary</button>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<footer class="foot">Atlantis University · School of Information Technology · CIT-283 Advanced Network Administration</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+
+/* ---------- clients ---------- */
+const CLIENTS = [
+ {id:'doral', name:'Palmetto Tax and Accounting, Doral', short:'12-person accounting office',
+  desc:'An accounting firm with twelve employees. Client tax files live on a local file server. Clients often wait in the lobby and ask for Wi-Fi.',
+  wired:12, wireless:4, printers:2, servers:1, pos:0, guests:10, needPOS:false,
+  req:['12 desktop PCs, all wired','4 staff laptops on Wi-Fi','2 network printers and 1 file server, which need fixed addresses','Guest Wi-Fi for up to 10 lobby visitors, who must never reach the file server','One public IP address from the ISP','Plan for 50% staff growth']},
+ {id:'cafe', name:'Café La Ventanita, Little Havana', short:'café with busy guest Wi-Fi',
+  desc:'A busy café. Two card payment terminals and a receipt printer handle every sale. Customers use the free Wi-Fi all day.',
+  wired:1, wireless:2, printers:1, servers:0, pos:2, guests:40, needPOS:true,
+  req:['2 card payment (POS) terminals, wired, which must be isolated from every other device','1 office PC (wired), 2 staff tablets on Wi-Fi, 1 receipt printer with a fixed address','Guest Wi-Fi for up to 40 customers at the same time','One public IP address from the ISP','Plan for 50% staff growth']},
+ {id:'gables', name:'Miracle Mile Realty, Coral Gables', short:'20-agent real estate office',
+  desc:'A real estate office where most agents work on laptops and move between desks and the conference room.',
+  wired:6, wireless:20, printers:1, servers:0, pos:0, guests:15, needPOS:false, extraWired:1,
+  req:['6 desktop PCs (wired) plus 1 wired conference room display','20 agent laptops on Wi-Fi','1 network printer with a fixed address','Guest Wi-Fi for up to 15 home buyers during open houses','One public IP address from the ISP','Plan for 50% staff growth']}
+];
+
+/* ---------- form definition ---------- */
+const FIELDS = [
+ {k:'router', label:'Router', type:'select', opts:[['','Choose...'],['biz','Business router (Cisco ISR4331 in Packet Tracer)'],['home','Consumer home Wi-Fi router only']], help:'The router connects the office to the ISP and routes between VLANs.'},
+ {k:'switch', label:'Switch', type:'select', opts:[['','Choose...'],['u8','8-port unmanaged switch'],['m8','8-port managed switch (supports VLANs)'],['m24','24-port managed switch (Cisco 2960-24TT)'],['m48','48-port managed switch']], help:'A managed switch supports VLANs. Count every wired device plus the uplink to the router and the access point.'},
+ {k:'vlans', label:'VLANs (staff VLAN is always included)', type:'checks', opts:[['guest','Guest'],['pos','Payment (POS)'],['srv','Printers and servers'],['voice','Voice']], help:'Each VLAN is a separate broadcast domain and its own subnet.'},
+ {k:'wifi', label:'Wireless design', type:'select', opts:[['','Choose...'],['sep','Business access point with a staff SSID and a separate guest SSID'],['one','One SSID shared by staff and guests'],['none','No wireless']], help:'An SSID is a wireless network name. Each SSID can be mapped to a different VLAN.'},
+ {k:'sec', label:'Staff Wi-Fi security', type:'select', opts:[['','Choose...'],['wpa3','WPA3-Personal'],['wpa2','WPA2-Personal (AES)'],['wep','WEP'],['open','Open (no password)']], help:'WPA2 with AES and WPA3 are current standards. WEP was broken years ago.'},
+ {k:'staffPfx', label:'Staff subnet size', type:'select', opts:[['','Choose...'],['24','/24 (254 hosts)'],['26','/26 (62 hosts)'],['27','/27 (30 hosts)'],['28','/28 (14 hosts)']], help:'Usable hosts = 2 to the power of host bits, minus 2. Leave room for growth.'},
+ {k:'guestPfx', label:'Guest subnet size', type:'select', opts:[['','Choose...'],['24','/24 (254 hosts)'],['26','/26 (62 hosts)'],['27','/27 (30 hosts)'],['28','/28 (14 hosts)']], help:'Every guest phone or laptop needs an address at the same time.'},
+ {k:'static', label:'Printers and servers', type:'select', opts:[['','Choose...'],['static','Static addresses, excluded from the DHCP pool'],['dhcp','Let DHCP assign them like any other device']], help:'Devices other people connect to need an address that never changes.'},
+ {k:'nat', label:'Internet access', type:'select', opts:[['','Choose...'],['pat','PAT (NAT overload) on the router interface facing the ISP'],['static','Static NAT, one public address per device'],['none','No NAT, use the private addresses on the internet']], help:'The ISP gives this office one public IP address.'}
+];
+const VNUM = {staff:10, guest:20, pos:30, srv:40, voice:50};
+const VLABEL = {staff:'Staff', guest:'Guest', pos:'Payment (POS)', srv:'Printers and servers', voice:'Voice'};
+const PRICE = {biz:'$400 to $1,500', home:'$80 to $250', u8:'$25 to $60', m8:'$120 to $300', m24:'$250 to $900', m48:'$500 to $1,500', ap:'$150 to $400'};
+const NAMES = {biz:'Business router', home:'Consumer Wi-Fi router', u8:'8-port unmanaged switch', m8:'8-port managed switch', m24:'24-port managed switch', m48:'48-port managed switch'};
+
+let client = CLIENTS[0], choice = {};
+
+function hosts(p){ return Math.pow(2,32-p)-2; }
+function portsNeeded(c){ return c.wired + (c.extraWired||0) + c.printers + c.servers + c.pos + 2; } // + router uplink + AP
+function staffDevices(c, ch){ let n = c.wired + (c.extraWired||0) + c.wireless; if (!(ch.vlans||[]).includes('srv')) n += c.printers + c.servers; return n; }
+
+/* ---------- scoring ---------- */
+function evaluate(c, ch){
+  const R=[]; const add=(st,pts,max,txt)=>R.push({st,pts,max,txt});
+  const v = ch.vlans||[];
+  // router (10)
+  if (ch.router==='biz') add('pass',10,10,'Business router: it can route between VLANs, run a DHCP pool per VLAN and do PAT.');
+  else if (ch.router==='home') add('fail',3,10,'A consumer router usually cannot route between several VLANs or give you per-VLAN DHCP and full control. Use a business router.');
+  else add('fail',0,10,'Choose a router.');
+  // switch (15)
+  const need = portsNeeded(c);
+  const sw = ch.switch;
+  const cap = {u8:8,m8:8,m24:24,m48:48}[sw]||0;
+  if (!sw) add('fail',0,15,'Choose a switch.');
+  else if (sw==='u8') add('fail',0,15,`An unmanaged switch cannot carry VLANs, so guests and staff would share one network. This office also needs ${need} ports.`);
+  else if (cap<need) add('fail',4,15,`Not enough ports: this office needs ${need} (every wired device plus the router uplink and the access point), but the switch has ${cap}.`);
+  else if (sw==='m48' && need<=24) add('warn',11,15,`A 48-port switch works, but ${need} ports fit on a 24-port switch for a lot less money.`);
+  else if (sw==='m24' && need<=8) add('warn',13,15,`This office needs only ${need} ports, so an 8-port managed switch would also work and cost less. A 24-port switch leaves room to grow.`);
+  else add('pass',15,15,`Managed switch with ${cap} ports covers the ${need} ports needed and supports VLANs.`);
+  // segmentation (15)
+  if (!v.includes('guest')) add('fail',0,15,'No guest VLAN: visitors would be on the same network as staff computers and the file server.');
+  else if (c.needPOS && !v.includes('pos')) add('fail',6,15,'Guests are separated, but the payment terminals share the staff network. Card payment devices belong in their own VLAN (PCI DSS guidance).');
+  else add('pass',15,15, c.needPOS?'Guests, staff and payment terminals each have their own VLAN.':'Guests have their own VLAN, separate from staff devices.');
+  // wireless design (10)
+  if (ch.wifi==='sep') add(v.includes('guest')?'pass':'warn', v.includes('guest')?10:5,10, v.includes('guest')?'Separate guest SSID mapped to the guest VLAN.':'You chose a separate guest SSID, but without a guest VLAN it has nowhere separate to go.');
+  else if (ch.wifi==='one') add('fail',0,10,'One shared SSID puts guests and staff on the same wireless network, even with VLANs on the switch.');
+  else if (ch.wifi==='none') add('fail',0,10,`This client needs Wi-Fi for ${c.wireless} staff devices and ${c.guests} guests.`);
+  else add('fail',0,10,'Choose a wireless design.');
+  // security (10)
+  if (ch.sec==='wpa3'||ch.sec==='wpa2') add('pass',10,10, ch.sec==='wpa3'?'WPA3-Personal is the current standard.':'WPA2-Personal with AES is acceptable. Use WPA3 if every device supports it.');
+  else if (ch.sec==='wep') add('fail',0,10,'WEP can be cracked in minutes. Never use it.');
+  else if (ch.sec==='open') add('fail',0,10,'Staff Wi-Fi without a password exposes business data to anyone nearby.');
+  else add('fail',0,10,'Choose a security mode for staff Wi-Fi.');
+  // staff subnet (10)
+  const sd = staffDevices(c,ch), sdg = Math.ceil(sd*1.5);
+  if (!ch.staffPfx) add('fail',0,10,'Choose a staff subnet size.');
+  else { const h=hosts(+ch.staffPfx);
+    if (h<sd) add('fail',0,10,`/${ch.staffPfx} gives ${h} hosts, but there are already ${sd} staff devices.`);
+    else if (h<sdg) add('warn',5,10,`/${ch.staffPfx} gives ${h} hosts: enough today (${sd}), but not for 50% growth (${sdg}).`);
+    else if (+ch.staffPfx===24 && hosts(26)>=sdg) add('pass',9,10,`/24 works (${sd} devices, ${sdg} with growth). A /26 would also fit and keeps more address space free for other VLANs.`);
+    else add('pass',10,10,`/${ch.staffPfx} gives ${h} hosts for ${sd} staff devices, ${sdg} with 50% growth.`);
+  }
+  // guest subnet (10)
+  if (!v.includes('guest')) add('fail',0,10,'No guest VLAN, so no guest subnet.');
+  else if (!ch.guestPfx) add('fail',0,10,'Choose a guest subnet size.');
+  else { const h=hosts(+ch.guestPfx);
+    if (h<c.guests) add('fail',0,10,`/${ch.guestPfx} gives ${h} guest addresses, but up to ${c.guests} guests connect at once. The rest would get no address.`);
+    else add('pass',10,10,`/${ch.guestPfx} gives ${h} addresses for up to ${c.guests} guests.`);
+  }
+  // static (10)
+  if (ch.static==='static') add('pass',10,10,'Printers'+(c.servers?' and servers':'')+' get static addresses from the excluded range, so they never move.');
+  else if (ch.static==='dhcp') add('fail',2,10,'If DHCP gives the printer a new address, every computer that prints to it breaks. Use static addresses excluded from the pool.');
+  else add('fail',0,10,'Choose how printers and servers get their addresses.');
+  // nat (10)
+  if (ch.nat==='pat') add('pass',10,10,'PAT lets every device share the single public address from the ISP.');
+  else if (ch.nat==='static') add('fail',0,10,'Static NAT needs one public address per device, and the ISP gave you one.');
+  else if (ch.nat==='none') add('fail',0,10,'Private addresses (RFC 1918) are not routed on the internet. Without NAT nothing reaches the web.');
+  else add('fail',0,10,'Choose how the office reaches the internet.');
+  return R;
+}
+
+/* ---------- summary ---------- */
+function summary(c, ch){
+  const v = ['staff', ...(ch.vlans||[])];
+  const pfx = k => k==='staff'? +(ch.staffPfx||24) : k==='guest'? +(ch.guestPfx||24) : 28;
+  const mask = p => { const m=(0xFFFFFFFF << (32-p))>>>0; return [24,16,8,0].map(s=>(m>>>s)&255).join('.'); };
+  const rows = v.map(k=>{ const n=VNUM[k], p=pfx(k), h=hosts(p); const last = h+1 -1; // last usable host offset = h
+    const dhcp = k==='srv' ? 'Static only' : `192.168.${n}.11 to 192.168.${n}.${Math.min(h,254)}`;
+    return `<tr><td>${n}</td><td>${VLABEL[k]}</td><td class="mono">192.168.${n}.0/${p}</td><td class="mono">${mask(p)}</td><td class="mono">192.168.${n}.1</td><td class="mono">${h<11?'Too small for a pool':dhcp}</td></tr>`; }).join('');
+  const eq = [];
+  if (ch.router) eq.push([NAMES[ch.router],1,PRICE[ch.router]]);
+  if (ch.switch) eq.push([NAMES[ch.switch],1,PRICE[ch.switch]]);
+  if (ch.wifi==='sep'||ch.wifi==='one') eq.push(['Business wireless access point',c.wireless+c.guests>30?2:1,PRICE.ap+' each']);
+  eq.push(['Patch cables (Cat 6)', portsNeeded(c), '$3 to $8 each']);
+  return `<h3>Addressing plan</h3>
+  <div class="scroll-x"><table class="data"><tr><th>VLAN</th><th>Name</th><th>Network</th><th>Mask</th><th>Gateway</th><th>DHCP range</th></tr>${rows}</table></div>
+  <p style="font-size:13px;color:var(--muted);margin:6px 0 0">Addresses .1 to .10 in each subnet are excluded from DHCP for the gateway, printers, servers and access points.</p>
+  <h3>Equipment list</h3>
+  <div class="scroll-x"><table class="data"><tr><th>Item</th><th>Qty</th><th>Rough price range</th></tr>${eq.map(e=>`<tr><td>${e[0]}</td><td>${e[1]}</td><td>${e[2]}</td></tr>`).join('')}</table></div>
+  <p style="font-size:13px;color:var(--muted);margin:6px 0 0">Price ranges are rough estimates for planning practice. Check current vendor quotes for a real proposal.</p>`;
+}
+
+/* ---------- UI ---------- */
+function renderScen(){
+  $('scen').innerHTML='';
+  CLIENTS.forEach(c=>{ const b=document.createElement('button'); b.setAttribute('role','radio'); b.setAttribute('aria-checked', c===client);
+    b.className = c===client?'on':''; b.innerHTML=`<b>${c.name}</b><span>${c.short}</span>`;
+    b.addEventListener('click',()=>{ client=c; choice={}; renderAll(); }); $('scen').appendChild(b); });
+}
+function renderForm(){
+  $('clientName').textContent = client.name; $('clientDesc').textContent = client.desc;
+  $('clientReq').innerHTML = client.req.map(r=>`<li>${r}</li>`).join('');
+  const f=$('form'); f.innerHTML='';
+  FIELDS.forEach(fd=>{
+    const w=document.createElement('div'); w.className='field';
+    if (fd.type==='select'){
+      w.innerHTML=`<label for="f-${fd.k}">${fd.label}</label>`;
+      const s=document.createElement('select'); s.id='f-'+fd.k;
+      fd.opts.forEach(([v,t])=>{ const o=document.createElement('option'); o.value=v; o.textContent=t; s.appendChild(o); });
+      s.value = choice[fd.k]||''; s.addEventListener('change',()=>{ choice[fd.k]=s.value; });
+      w.appendChild(s);
+    } else {
+      w.innerHTML=`<div class="lbl">${fd.label}</div>`;
+      const box=document.createElement('div'); box.className='checks';
+      fd.opts.forEach(([v,t])=>{ const l=document.createElement('label'); const cb=document.createElement('input'); cb.type='checkbox'; cb.value=v; cb.checked=(choice.vlans||[]).includes(v);
+        cb.addEventListener('change',()=>{ choice.vlans=[...box.querySelectorAll('input:checked')].map(x=>x.value); }); l.appendChild(cb); l.appendChild(document.createTextNode(t)); box.appendChild(l); });
+      w.appendChild(box);
+    }
+    const h=document.createElement('div'); h.className='help'; h.textContent=fd.help; w.appendChild(h);
+    f.appendChild(w);
+  });
+}
+let nChecks=0;
+function check(){
+  nChecks++;
+  const R=evaluate(client,choice); const tot=R.reduce((a,r)=>a+r.pts,0);
+  $('score').textContent = tot+' / 100'; $('meter').style.width=tot+'%';
+  $('checks').textContent = 'Checked '+nChecks+(nChecks===1?' time':' times');
+  $('res').innerHTML = R.map(r=>`<li class="${r.st}"><span class="ic">${r.st==='pass'?'✓':r.st==='warn'?'!':'✗'}</span><span>${r.txt}</span><span class="pts">${r.pts}/${r.max}</span></li>`).join('');
+  $('summary').innerHTML = summary(client,choice);
+  $('pTitle').textContent = 'Network design summary: '+client.name+' (score '+tot+'/100)';
+  $('printBtn').disabled=false;
+  if (window.innerWidth<900) $('resultCard').scrollIntoView({behavior:'smooth'});
+}
+function renderAll(){ renderScen(); renderForm(); nChecks=0; $('score').textContent='0 / 100'; $('meter').style.width='0'; $('checks').textContent='Not checked yet'; $('res').innerHTML='<li class="warn"><span class="ic">?</span><span>Complete the form and press "Check my design".</span><span></span></li>'; $('summary').innerHTML=''; $('printBtn').disabled=true; }
+$('checkBtn').addEventListener('click',check);
+$('resetBtn').addEventListener('click',()=>{ choice={}; renderAll(); });
+$('printBtn').addEventListener('click',()=>window.print());
+renderAll();
+window.__ond = {CLIENTS, evaluate, summary, portsNeeded, staffDevices, setChoice:c=>{choice=c;}};
+</script>
+</body>
+</html>
